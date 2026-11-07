@@ -8,5 +8,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Placeholder check (diperluas: link check + check:claims — OPS-115..117)
+      - name: "Placeholder check (diperluas: link check + check:claims — OPS-115..117)"
         run: test -f README.md && test -f docs/partner-onboarding.md
