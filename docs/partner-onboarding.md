@@ -18,7 +18,7 @@ Satu kalimat untuk investor: *"Autonomous balance-sheet NFTs yang hidup di atas 
 
 ## 2. Masalah yang diselesaikan
 
-Berdasarkan studi kasus runtuhnya GameFi dan memecoin generasi pertama (mis. token game yang jatuh >99% dalam hitungan minggu):
+Berdasarkan studi kasus runtuhnya token game on-chain dan memecoin generasi pertama (mis. token game yang jatuh >99% dalam hitungan minggu):
 
 1. **Memecoin & token game mati karena tidak ada bank sentral otomatis.** Saat ramai, suplai meledak tanpa mekanisme bakar proporsional; saat sepi, tidak ada stimulus. Akibatnya: hiperinflasi lalu death spiral.
 2. **NFT selama ini "dead JPEG"** — penanda kepemilikan pasif. NFT tidak bisa memegang kas sendiri, tidak punya biaya hidup, tidak bisa mengakuisisi NFT lain, tidak bisa bangkrut.
@@ -36,6 +36,7 @@ Setiap **Homunculus Strain** adalah NFT (`NEP-171`) dengan:
 - **Sub-account NEAR sendiri** (`s-<id>.snacc-v001.near`) — neraca berdaulat yang menyimpan kas `$SNACC` dan inventori molekul.
 - **Vitalitas & BMR (Basal Metabolic Rate)** — vitalitas meluruh seiring waktu nyata. Tidak diberi makan → vitalitas 0 → pingsan/mati. Inilah "harus makan" itu.
 - **Spesialisasi produksi (role bitmask)**: `Extractor` (penghasil bahan baku), `Fermenter` (pemurni), atau `Synthesizer` (pencipta produk akhir). Menggabungkan ketiganya (`0b111`) hanya mungkin lewat **M&A** — ini inti teori ekonominya: integrasi vertikal lewat merger, bukan farming sendirian.
+- **Koloni multi-sel (`EN-08`)** — satu alkemis bisa membelah Strain (`divide_strain` → NFT anakan yang mewarisi genom & organel), mengadopsi (`adopt`) atau memanen (`snack`) Strain sekarat milik orang lain. Pagar populasi alami: `MAX_COLONY_SIZE = 5`, `MAX_GENERATION = 8`, dan `births ≤ merges + lyses` — populasi hanya bertumbuh seiring kerja (merger) dan kematian (lisis), bukan cetak-mencetak.
 - **Metadata visual live (`NEP-177`)** — SVG 8 indikator (detak jantung, saldo, energi, organel, suhu ekonomi, zona, koloni, bounty) yang dirender langsung dari state kontrak (~1.734 byte, 0 biaya storage tambahan). NFT-nya "berdenyut" secara real-time.
 
 ### Rantai pasok 3 tahap (9 molekul `NEP-245`)
@@ -92,7 +93,7 @@ Yang membedakan dari memecoin sampah: (1) volatilitasnya punya **sumber mekanik*
 
 ## 6. Mekanik memecoin ringkas (11 mekanik)
 
-1. Suplai reaktif (`CrucibleTemp` → burn 3,5% / rebate 2%) · 2. **Nutrient Burst** — kematian memberi diskon makan global · 3. **The Great Feast** — target volume komunitas per epoch (bonus "Goldilocks" / zona Fever-Famine, top-3 kontributor) · 4. **Rescue feeding** — makin sekarat makin murah disuapi (ada risiko ditinggal mati) · 5. **Diet per kasta** — diskon beda per spesialisasi saat zona ekstrem · 6. **Watchability** — meteran selera makan + event live · 7. **`$ATP`** — energi internal non-transferable (bukan token!) yang membuat suplai `$SNACC` benar-benar terasa · 8. **Slot organel** — alokasi energi per epoch · 9. **Koloni multi-sel** — belah diri (NFT anakan), adopsi vs panen, maks 5 sel/koloni, generasi maks 8 · 10. **Industrial Dividend Pool** — 50% fee non-burn dibagikan pro-rata ke pemegang eliksir · 11. **NPC otonom** — 3 pedagang AI on-chain (*Pyre-X, Myco-7, Void-0*) yang menyediakan likuiditas dua arah dengan harga kelangkaan, sehingga ekonomi tetap hidup 24/7 tanpa dev patch.
+1. Suplai reaktif (`CrucibleTemp` → burn 3,5% / rebate 2%) · 2. **Nutrient Burst** — kematian memberi diskon makan global · 3. **The Great Feast** — target volume komunitas per epoch (bonus "Goldilocks" / zona Fever-Famine, top-3 kontributor) · 4. **Rescue feeding** — makin sekarat makin murah disuapi (ada risiko ditinggal mati) · 5. **Diet per kasta** — diskon beda per spesialisasi saat zona ekstrem · 6. **Watchability** — meteran selera makan + event live · 7. **`$ATP`** — energi internal non-transferable (bukan token!) yang membuat suplai `$SNACC` benar-benar terasa · 8. **Slot organel** — alokasi energi per epoch · 9. **Koloni multi-sel** — belah diri (`divide_strain`, NFT anakan), adopsi (`adopt`) vs panen (`snack`), dengan pagar populasi alami: `MAX_COLONY_SIZE = 5`, `MAX_GENERATION = 8`, `births ≤ merges + lyses` (bukan "populasi hanya menyusut" versi lama) · 10. **Industrial Dividend Pool** — 50% fee non-burn dibagikan pro-rata ke pemegang eliksir · 11. **NPC otonom** — 3 pedagang AI on-chain (*Pyre-X, Myco-7, Void-0*) yang menyediakan likuiditas dua arah dengan harga kelangkaan, sehingga ekonomi tetap hidup 24/7 tanpa dev patch.
 
 ---
 
