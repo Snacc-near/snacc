@@ -26,4 +26,6 @@ cd ../scripts && npm run verify:thesis   # pembuktian tesis (juri)
 
 Vault `snacc-vault/` — mulai dari [[Snacc Hub]]. Angka mengikuti **Kamus Angka Resmi** ([[Snacc - Model Data]]). Backlog & urutan eksekusi: [[Snacc - Backlog Master]] (±300 item).
 
+**Onboarding partner (standalone, tanpa link):** [`docs/partner-onboarding.md`](docs/partner-onboarding.md) — ringkasan end-to-end Snacc untuk pihak luar.
+
 **Aturan kejujuran:** tanpa hash testnet tidak ada klaim live; profit = kerja + redistribusi (Industrial Dividend Pool), tanpa jaminan untung; `$SNACC` testnet tanpa nilai uang.
