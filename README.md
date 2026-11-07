@@ -1,7 +1,7 @@
 # Snacc — Payung Polyrepo
 
 **Snacc ($SNACC): NFTs that eat a memecoin.** *Feed your Snacc or it gets snacked.*
-Satu `Homunculus Strain` (`NEP-171`/`NEP-177`) punya perut `$SNACC` + inventori `NEP-245`, metabolisme `BMR`, bisa merger (`splice_strains`), di-takeover saat sekarat, dan dipanen siapa pun saat pingsan — di belakangnya bank sentral reaktif `CrucibleTemp`, 3 NPC otonom, dan verifikasi AI di `NEAR AI Cloud TEE` (`env::ed25519_verify` on-chain).
+Satu `Homunculus Strain` (`NEP-171`/`NEP-177`) punya perut `$SNACC` + inventori `NEP-245`, metabolisme `BMR`, energi internal `$ATP` (non-transferable) yang dialokasikan ke slot organel tiap epoch, bisa merger (`splice_strains`), di-takeover saat sekarat, dan dipanen siapa pun saat pingsan — koloni multi-sel (`divide_strain`, `adopt` vs `snack`) berjalan di bawah pagar populasi alami (`MAX_COLONY_SIZE = 5`, `MAX_GENERATION = 8`, `births ≤ merges + lyses`). Di belakangnya bank sentral reaktif `CrucibleTemp` (Fever bakar 3,5% fee / Hypothermia subsidi 2%), 3 NPC otonom, dan verifikasi AI di `NEAR AI Cloud TEE` (`env::ed25519_verify` on-chain). Volatilitas `$SNACC` adalah fitur yang bisa dimainkan — bukan janji imbal hasil.
 
 ## Tata repo (keputusan pemilik 2026-11-06: polyrepo gaya `x207`)
 
