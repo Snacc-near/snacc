@@ -46,6 +46,16 @@ Dari Spec Antarmuka Kontrak:
 
 > Catatan: penomoran spec melompat dari `I-10` ke `I-14` (tidak ada `I-11..I-13` di Spec Antarmuka Kontrak) — dipertahankan apa adanya demi stabilitas referensi.
 
+- **Keputusan desain: NPC = market-maker TERISOLASI (TC-NPC-06)** — perdagangan NPC
+  (`npc_buy_spores`) **tidak** memengaruhi `volume_epoch`/suhu/feast; suhu digerakkan
+  aktivitas sel (fee katalis + ATP feed). Ini keputusan desain terdokumentasi — **bukan
+  bug**: NPC hanyalah liquidity provider dengan kas terisolasi (`I-15`), bukan partisipan
+  termostat. Bila kelak dirancang NPC ikut menggerakkan suhu, update spec + indexer
+  (`tc_npc_06` sengaja gagal sebagai pengingat).
+- **DK-030 lantai fee (pipeline #17)**: `effective_fee` feed di-floor ke **1 yocto** —
+  kombinasi burst × dormansi × rescue tidak pernah menghasilkan feed gratis
+  (`tc_dk030_feed_tidak_pernah_gratis`).
+
 ## 3. Kode error `ERR_*` (persis dari kode kontrak)
 
 | Kode | Konteks |

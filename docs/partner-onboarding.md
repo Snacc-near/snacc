@@ -12,7 +12,7 @@ Snacc adalah **permainan ekonomi on-chain di NEAR** di mana setiap NFT bukan gam
 
 Di belakangnya berjalan mesin penuh: **bank sentral algoritmik** yang mengatur suplai `$SNACC` secara otomatis, **rantai pasok multi-token 3 tahap**, **M&A antar-NFT on-chain**, dan **verifikasi keputusan AI rahasia di TEE (Trusted Execution Environment) NEAR AI Cloud yang dicek langsung oleh kontrak pintar** — tanpa admin, tanpa komite, tanpa yang bisa mencurangi sistem termasuk pembuatnya sendiri.
 
-Satu kalimat untuk investor: *"Autonomous balance-sheet NFTs yang hidup di atas memecoin dengan bank sentral algoritmik — kasino yang bandarnya adalah matematika."*
+Satu kalimat ringkas: *"Autonomous balance-sheet NFTs yang hidup di atas memecoin dengan bank sentral algoritmik — aturannya matematika, bukan operator."*
 
 ---
 
@@ -85,7 +85,7 @@ Total: **±7 keputusan bermakna per epoch** — bukan klik kosong.
 
 Yang membedakan dari memecoin sampah: (1) volatilitasnya punya **sumber mekanik** yang bisa dimainkan, bukan sekadar pump-dump; (2) sistemnya **anti-death-spiral** (bank sentral algoritmik), tapi **bukan anti-rugi** — keputusan buruk tetap dihukum; (3) semua risiko bisa **dilihat live** (meteran suhu, zona, countdown); (4) tidak ada admin yang bisa menarik kas atau mengubah aturan diam-diam.
 
-> *Pitch untuk juri: "$SNACC tetap kasino — tapi house edge-nya datang dari nyali & timing, bukan keberuntungan semata; dan bandarnya (CrucibleTemp) tidak bisa dicurangi siapa pun, termasuk kami."*
+> *Pitch untuk juri: "$SNACC sengaja tetap volatil — tapi sumber volatilitasnya adalah mekanik yang bisa dibaca dan dimainkan (meteran suhu, zona, countdown), dan tidak ada pihak yang bisa mengubah aturannya, termasuk kami."*
 
 **Batas kejujuran:** pada tahap ini token uji coba **tanpa nilai uang**; klaim profit = kerja + redistribusi, **tanpa jaminan untung**; volatilitas adalah fitur, bukan janji.
 

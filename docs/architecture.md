@@ -8,11 +8,11 @@
 | --- | --- | --- | --- |
 | [`snacc`](../README.md) (payung) | — | README, docs, orkestrasi demo | aktif |
 | [`contracts`](https://github.com/Snacc-near/contracts) | `M1` + `M2` | Kontrak Rust `snacc-v001.near` (`near-sdk =5.29.1`, `rustc 1.99.1`) — semua mekanik | `VC-001..006` ter-merge, 53 test |
-| [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | `M3` | Dual-Layer Redaction (`ADR-05`) + klien TEE + verifikator ed25519 | `TEE-101..104` ter-merge, 14 test |
+| [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | `M3` | Klien TEE + verifikator ed25519 + redaksi lokal deterministik (Layer 1, `ADR-05`); panggilan cloud `/v1/privacy/redact` dicoba dengan *graceful fallback* — endpoint itu 404 untuk `glm-5.3-flash` (Spike S2.2), jadi Layer 2 tidak pernah berjalan pada model ini | `TEE-101..104` ter-merge, 14 test |
 | [`sdk`](https://github.com/Snacc-near/sdk) | `M4` | `lab-sdk`: parser event NEP-297; `SnaccClient` + Function Call Keys menyusul | `SDK-107..108` ter-merge, 15 test |
 | [`backend`](https://github.com/Snacc-near/backend) | `M5` | Indexer `NEP-297` + API `/api/crucible/*` | scaffold (`INT-101..108` berjalan) |
-| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough | stub |
-| [`scripts`](https://github.com/Snacc-near/scripts) | `M7` | `verify:thesis`, `demo:replay`, `demo-e2e.mjs` | aktif |
+| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough | **belum dikerjakan** (urutan FE terakhir, menunggu acc pemilik) |
+| [`scripts`](https://github.com/Snacc-near/scripts) | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, simulasi ekonomi | aktif |
 
 ## 2. Empat lapis mekanisme
 

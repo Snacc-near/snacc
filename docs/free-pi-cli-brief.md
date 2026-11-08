@@ -79,10 +79,10 @@ done
 | `sdk` | M4 | `lab-sdk`: Function Call Keys + `SnaccClient` | stub |
 | `backend` | M5 | Indexer `NEP-297` + API `/api/crucible/*` | stub |
 | `frontend` | M6 | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough | stub |
-| `scripts` | M7 | `verify:thesis`, `demo:replay`, `demo-e2e.mjs`, simulasi ekonomi | aktif |
+| `scripts` | M7 | `verify:thesis`, `demo:replay`, `gladi:retry`, simulasi ekonomi | aktif |
 
 **Toolchain & dependensi (terkunci, jangan diubah tanpa alasan):**
-- `rustc 1.99.1` (dipin via `rust-toolchain.toml`), target `wasm32-unknown-unknown`
+- `rustc 1.99.1` (dipin via `contracts:rust-toolchain.toml`), target `wasm32-unknown-unknown`
 - `near-sdk = "=5.29.1"` (pin **eksak**) + `near-sdk` feature **`unit-testing`** di dev-dependencies
 - Node.js LTS (murni, tanpa framework berat), `gh` CLI (GitHub), git
 - CI: GitHub Actions — `contracts`: `cargo test` + `cargo check --target wasm32-unknown-unknown` (wajib hijau 0 warning); repo lain: placeholder yang diperluas saat kode masuk
@@ -118,14 +118,14 @@ Dua perintah ini harus **keduanya hijau** sebelum setiap PR.
 |---|---|
 | `#[near_bindgen]` di struct kontrak | **SALAH** untuk near-sdk 5 → build wasm gagal `E0277: ContractState`. Pakai `#[near(contract_state)]` + `#[near]` di impl |
 | `near-sdk = "5.29.1"` biasa | Cargo resolve ke `5.30.x` yang punya `compile_error!` guard. Pakai pin eksak `=5.29.1` + feature `unit-testing` di dev-deps |
-| `env::mock` / `MockEnv` untuk test | **Tidak ada** di near-sdk 5.29. Pakai `testing_env!` + `near_sdk::test_utils::VMContextBuilder` (lihat helper `set_context` di `contracts/snacc/src/lib.rs`) |
+| `env::mock` / `MockEnv` untuk test | **Tidak ada** di near-sdk 5.29. Pakai `testing_env!` + `near_sdk::test_utils::VMContextBuilder` (lihat helper `set_context` di [`contracts:snacc/src/lib.rs`](https://github.com/Snacc-near/contracts/blob/main/snacc/src/lib.rs)) |
 | `LookupMap::get(...)` dianggap `Option<V>` | Salah — hasilnya `Option<&V>`: pakai `.copied()` / `.cloned()` / assert `Some(&nilai)` |
 | `AccountId::new_unvalidated` | Deprecated — pakai `"....".parse::<AccountId>().unwrap()` |
 | YAML CI: `name: Foo: bar` | Titik-dua+spasi di skalar tak-kuot = parse error. Kutip nilainya |
 | Mengarang angka/nama | Dilarang. Tidak ada di spec/kamus → pilih solusi sederhana + **catat sebagai ambiguitas** di laporan/PR |
 | Merusak test lama | Dilarang. Test yang ada hanya boleh bertambah (penyesuaian kecil field boleh) |
 
-**Referensi pola yang benar**: `contracts/snacc/src/state.rs` + `lib.rs` (hasil VC-001..005,
+**Referensi pola yang benar**: [`contracts:snacc/src/state.rs`](https://github.com/Snacc-near/contracts/blob/main/snacc/src/state.rs) + `contracts:snacc/src/lib.rs` (hasil VC-001..005,
 34 test hijau) — ikuti struktur, gaya komentar, dan pola test-nya.
 
 ---

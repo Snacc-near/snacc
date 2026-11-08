@@ -13,14 +13,18 @@ Satu `Homunculus Strain` (`NEP-171`/`NEP-177`) punya perut `$SNACC` + inventori 
 | `sdk` | `M4` | `lab-sdk`: Function Call Keys (0-popup) + `SnaccClient` |
 | `backend` | `M5` | Indexer `NEP-297` + API `/api/crucible/*` |
 | `frontend` | `M6` | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough |
-| `scripts` | `M7` | `verify:thesis`, `demo:replay`, `demo-e2e.mjs` |
+| `scripts` | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, simulasi ekonomi |
 
-## Mulai cepat (setelah repo di-clone berdampingan)
+## Mulai cepat (juri: Node.js 22+, tanpa kunci, tanpa `npm install`)
 
 ```bash
-cd contracts && cargo test        # kontrak hijau
-cd ../scripts && npm run verify:thesis   # pembuktian tesis (juri)
+git clone https://github.com/Snacc-near/snacc.git && cd snacc
+git clone https://github.com/Snacc-near/scripts.git scripts
+npm run demo:replay      # replay offline dari bukti ter-commit di evidence/
+npm run verify:thesis    # falsifier F-01..F-03
 ```
+
+Kontrak: clone repo `contracts`, lalu `cargo test`. Bukti per klaim: [`docs/evidence-pack.md`](docs/evidence-pack.md) · ringkasan submission: [`HACKATHON.md`](HACKATHON.md).
 
 ## Sumber kebenaran desain
 

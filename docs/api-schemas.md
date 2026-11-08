@@ -1,6 +1,6 @@
 # Snacc — Skema API & JSON
 
-> Skema view kontrak yang **sudah ada di kode** + endpoint `/api/crucible/*` rencana backend. Nama field disalin persis dari `repos/Snacc/contracts/snacc/src/state.rs` dan `snacc-vault/04 Arsitektur/Snacc - Spec API Backend dan TEE.md`. Angka contoh bersifat ilustratif struktur, bukan data live.
+> Skema view kontrak yang **sudah ada di kode** + endpoint `/api/crucible/*` rencana backend. Nama field disalin persis dari [`contracts:snacc/src/state.rs`](https://github.com/Snacc-near/contracts/blob/main/snacc/src/state.rs) dan `snacc-vault/04 Arsitektur/Snacc - Spec API Backend dan TEE.md`. Angka contoh bersifat ilustratif struktur, bukan data live.
 
 ## 1. View kontrak (JSON-RPC `query` → `call_function`)
 
@@ -74,7 +74,7 @@ Sumber: Spec API Backend dan TEE §2. Status implementasi di repo `backend` meng
 
 | Method & Path | Respons utama | Status |
 | --- | --- | :-: |
-| `GET /api/crucible/macro` | `{ crucibleTemp, zone, totalVitaSupply, totalVitaBurned, ruleBoundTreasury, epochVolume, history[] }` | ✅ scaffold |
+| `GET /api/crucible/macro` | `{ crucibleTemp, zone, totalSnaccSupply, totalSnaccBurned, ruleBoundTreasury, epochVolume, history[] }` | ✅ scaffold |
 | `GET /api/strains` | `{ strains: StrainVesselView[], starvingCount, splicedCount }` | ✅ scaffold (list dari event cache; indexer penuh = TODO) |
 | `GET /api/strains/:id` | `StrainVesselView` | ✅ scaffold |
 | `GET /api/strains/:id/svg` | `image/svg+xml` (dari `nft_token`) | stub |
@@ -90,7 +90,7 @@ Endpoint stub merespons `501` dengan `{ "error": "not_implemented", "todo": "<ID
 
 ## 3. Format event `NEP-297`
 
-Kontrak memancarkan log dengan JSON ber-field `kind` (parser di `sdk/src/events.ts`):
+Kontrak memancarkan log dengan JSON ber-field `kind` (parser di [`sdk:src/events.ts`](https://github.com/Snacc-near/sdk/blob/main/src/events.ts)):
 
 ```
 {"kind":"strain_created","strain_id":1,"owner_id":"...","role_mask":1,"initial_snacc_stake":40000,"spores_minted":1}
