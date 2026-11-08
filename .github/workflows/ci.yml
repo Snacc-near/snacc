@@ -8,5 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: "Placeholder check (diperluas: link check + check:claims — OPS-115..117)"
-        run: test -f README.md && test -f docs/partner-onboarding.md
+      - name: Node setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: "check:claims + check-links (OPS-115 / DK-085)"
+        run: |
+          npm run check:claims
+          npm run check-links

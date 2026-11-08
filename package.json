@@ -1,0 +1,15 @@
+{
+  "name": "snacc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "demo:replay": "node scripts/demo-replay.mjs",
+    "verify:thesis": "node scripts/verify-thesis.mjs",
+    "gladi:retry": "node scripts/gladi-retry.mjs",
+    "dex-check": "node scripts/dex-check.mjs",
+    "check:claims": "node scripts/check-claims.mjs",
+    "check-links": "node scripts/check-links.mjs"
+  }
+}
