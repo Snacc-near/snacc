@@ -12,6 +12,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Ambil repo scripts pada commit yang ditunjuk gitlink
+        run: |
+          SHA=$(git ls-tree HEAD scripts | awk '{print $3}')
+          rm -rf scripts
+          git clone -q https://github.com/Snacc-near/scripts.git scripts
+          git -C scripts checkout -q "$SHA"
       - name: "check:claims + check-links (OPS-115 / DK-085)"
         run: |
           npm run check:claims
