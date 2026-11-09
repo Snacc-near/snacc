@@ -9,9 +9,10 @@ exists.
 
 Ordered by risk to the *claims we already make*:
 
-1. **`V-04` drift fix** — patch `hostile_takeover_splice` to credit the seller via
-   `set_account_balance` (the diagnosis is recorded in `docs/post-mortem-draft.md` §3). Until merged,
-   `get_global_solvency → solvent:false` stays visible and must stay disclosed.
+1. **`V-04` drift fix** — **closed**: `hostile_takeover_splice` credits the seller via
+   `set_account_balance` (contracts:snacc/src/lib.rs:1668) in contracts PR #21 (V-04 parity;
+   diagnosis recorded in `docs/post-mortem-draft.md` §3). The earlier deployment showed
+   `get_global_solvency → solvent:false`; the current deployment reports `drift: 0`.
 2. **Live-state reconciliation** — decide repair vs. redeploy for testnet state.
 3. **SEC-103 NEP compliance report** — `docs/nep-compliance.md` (status per NEP, no overclaim;
    published 2026-11-09).
@@ -20,8 +21,8 @@ Ordered by risk to the *claims we already make*:
 
 ## Phase 1 — Right after the demo (weeks 1–2)
 
-- **CI hardening:** keep `cargo test` (257 tests, 0 warnings on contracts origin/main as of
-  2026-11-09) + wasm `cargo check` + `npm run verify:thesis` as merge gates; add the NEP compliance
+- **CI hardening:** keep `cargo test` (288 tests on contracts origin/main as of 2026-11-09)
+  + wasm `cargo check` + `npm run verify:thesis` as merge gates; add the NEP compliance
   check to CI once SEC-103 tooling is chosen.
 - **Indexer decision** (`docs/indexer-decision.md`) — the poller v2 spike (`backend:src/poller.ts`)
   is live and recommended; the remaining decision is the long-term indexer engine.

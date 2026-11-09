@@ -7,7 +7,7 @@
 
 ```bash
 cd contracts
-cargo test                                     # 257 unit tests, all green (contracts origin/main, 2026-11-09)
+cargo test                                     # 288 unit tests (contracts origin/main, 2026-11-09)
 cargo check --target wasm32-unknown-unknown    # 0-warning gate (must pass)
 cargo near build                               # wasm for deployment (snacc.wasm)
 ```
