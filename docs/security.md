@@ -56,6 +56,12 @@ From the Spec Antarmuka Kontrak:
 - **The DK-030 fee floor (pipeline #17)**: the `effective_fee` of a feed is floored at **1 yocto** —
   the burst × dormancy × rescue combination never produces a free feed
   (`tc_dk030_feeding_is_never_free`).
+- **Official NEAR AI verifier references (RES-104)** — NEAR AI's official repositories for
+  TDX/DCAP attestation verification (existence verified via the GitHub API, 2026-11-08):
+  - [`nearai/nearai-cloud-verifier`](https://github.com/nearai/nearai-cloud-verifier) — "NEAR AI Cloud Verifier";
+  - [`nearai/tee-attestation-server`](https://github.com/nearai/tee-attestation-server) — "Lightweight TEE attestation sidecar for dstack CVM deployments";
+  - [`nearai/cloud-api`](https://github.com/nearai/cloud-api) — cloud API (the attestation endpoint that `demo:replay` RES-103 uses);
+  - `dcap-qvl` (Rust/CLI verifier for DCAP quotes) — when available, install via `cargo install`; at audit time it was **not installed** on the gladi machine → offline verification is honestly reported `SKIPPED` (see `demo:replay` RES-103).
 
 ## 3. The `ERR_*` error codes (verbatim from the contract code)
 
