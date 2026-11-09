@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-11-09T05:57:12.061Z",
+  "contract": "snacc-v001.testnet",
+  "rpc": "https://test.rpc.fastnear.com",
+  "sim": {
+    "final_population": 95,
+    "supply_final": 841410,
+    "total_burned": 158590,
+    "total_rebate": 44401753,
+    "fever_pct": 5.86,
+    "hypo_pct": 92.96,
+    "death_spiral": false,
+    "conservation_closes": true,
+    "conservation_max_abs_drift": 0
+  },
+  "live": {
+    "crucible_temp": 1040,
+    "ft_total_supply": "2214131454347447129078242",
+    "solvent": true,
+    "nft_metadata_spec": "nft-1.0.0",
+    "storage_min": "5000000000000000000000"
+  }
+}

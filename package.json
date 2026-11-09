@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "demo:replay": "node scripts/demo-replay.mjs",
+    "demo:e2e": "node scripts/demo-e2e.mjs",
     "verify:thesis": "node scripts/verify-thesis.mjs",
     "gladi:retry": "node scripts/gladi-retry.mjs",
     "dex-check": "node scripts/dex-check.mjs",

@@ -48,4 +48,6 @@ The `snacc-vault/` vault — start from [[Snacc Hub]]. Numbers follow the **Kamu
 
 **Launch checklist (RES-124 / RES-109):** [`docs/launch-checklist.md`](docs/launch-checklist.md) — the Meme.Cooking flow, pre-launch gates, the owner-decision liquidity parameters, and the testnet mock steps (documents only; no launch has been executed).
 
+**Docs set:** [`docs/glossary.md`](docs/glossary.md) · [`docs/quickstart.md`](docs/quickstart.md) · [`docs/econ-incentives.md`](docs/econ-incentives.md) · [`docs/econ-falsifiers.md`](docs/econ-falsifiers.md) · [`docs/demo-walkthrough.md`](docs/demo-walkthrough.md) · [`docs/demo-evidence-pack.md`](docs/demo-evidence-pack.md) · [`docs/shade-agents-npc.md`](docs/shade-agents-npc.md) · [`docs/mintbase-listing-checklist.md`](docs/mintbase-listing-checklist.md) · [`docs/roadmap-post-hackathon.md`](docs/roadmap-post-hackathon.md) · [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) · [`docs/post-mortem-draft.md`](docs/post-mortem-draft.md) · replay: [`evidence/demo-replay.md`](evidence/demo-replay.md)
+
 **Honesty rules:** no testnet hash means no live claim; profit = work + redistribution (the Industrial Dividend Pool), no profit guarantee; `$SNACC` testnet has no monetary value.
