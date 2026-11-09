@@ -54,8 +54,9 @@ must be 0", so the claim failed on the live state of that deployment.
 through the accumulator (SEC-104), and the contract was **redeployed** on 2026-11-08 with the
 audit-fix bundle; `get_global_solvency` on the current deployment reports `drift: 0, solvent: true`
 (`evidence/gladi-manifest.json` `solvency_final`; `docs/evidence-pack.md` C2). Solvency asserts
-live in the contracts QA suites (`qa_audit_tests.rs`, `qa_regression_tests.rs` — the original
-`tests/qa_v04_test.rs` path has since been reorganized; original commit hash unverified here).
+live in the contracts QA suites (the `qa_audit_tests.rs` and `qa_regression_tests.rs`
+suites — the original v04 integration-test path no longer exists under that name on contracts
+origin/main; original commit hash unverified here).
 
 **Lesson.** An accumulator invariant needs a *single* write path and an audit of every mutation
 point; we audited the others (`splice`, `lysis`, `adopt`, `divide`, dividends, NPC, ft_*) — one

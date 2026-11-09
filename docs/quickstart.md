@@ -13,8 +13,9 @@ cargo near build                               # wasm for deployment (snacc.wasm
 ```
 
 - 0 warnings required before commit (CI gate).
-- Structure: `snacc/src/lib.rs` (methods), `state.rs` (D1–D8), `events.rs` (NEP-297), `svg.rs`
-  (NEP-177), `qa_*_tests.rs` (per-feature QA test batches).
+- Structure: `contracts:snacc/src/lib.rs` (methods), `contracts:snacc/src/state.rs` (D1–D8),
+  `contracts:snacc/src/events.rs` (NEP-297), `contracts:snacc/src/svg.rs` (NEP-177),
+  `contracts:snacc/src/qa_*_tests.rs` (per-feature QA test batches).
 
 ## 2. Repos & layout
 
