@@ -57,5 +57,7 @@ The history of the initial proposal resolution (the pure multi-leg Option) is ke
 
 - Calibration: econ-report-3, the output of `scripts/econ-calib-opsib.mjs` (summary: `docs/econ-sweep-opsib.md`).
 - Installation: pipeline #4 (the `EN-114..119` commit — `TermostatParams`, `add_volume_legs`).
-- Locking tests: `qa_macro_tests::tc_macro_*`, `qa_svg_tests::tc_svg_02/03`,
-  `econ111_volume_multikaki_dan_eksklusi`.
+- Locking tests: `qa_en117_tests::tc_en117_atp_enters_v_epoch` (the ATP leg lands in `V_epoch`),
+  `econ111_volume_multi_legs_and_exclusions` (the K2/K3/K4 legs + the exclusions).
+  Note: an earlier version of this line cited `qa_macro_tests::tc_macro_*` and
+  `qa_svg_tests::tc_svg_02/03` — those test modules do not exist in the repo (stale citation, corrected).

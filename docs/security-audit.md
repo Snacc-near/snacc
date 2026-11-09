@@ -22,8 +22,8 @@
   promise, reset to 0 in the `#[private]` callbacks (`on_subaccount_created` /
   `nft_resolve_transfer`, all paths). `assert_atomic_ready` now really rejects M&A mutations
   mid-promise-window.
-- Status: **CLOSED** — the tests `sec111_kunci_nyata_set_dan_lepas` &
-  `sec111_kunci_nft_transfer_call` (set, a lock panic, the callback, release, a valid M&A).
+- Status: **CLOSED** — the tests `sec111_real_lock_set_and_release` &
+  `sec111_lock_on_nft_transfer_call` (set, a lock panic, the callback, release, a valid M&A).
 ## SEC-112 — Ledger arithmetic overflow/underflow
 
 A sweep of all `snacc_balances`/`account_balances`/ATP/treasury/pool/bounty arithmetic.
@@ -47,32 +47,35 @@ EN-124, the `SEC-110` minimum deposit) — already in the current document versi
 
 ## SEC-114/115 — Commitment double-spend & TEE signature reuse
 
-Covered by the contract tests (e.g. `sec107_anti_replay_chat_id_sama_ditolak`,
-`vc006_komitmen_tidak_cocok_ditolak`, `vc006_payload_strain_lain_ditolak`,
-`vc006_signer_tidak_terdaftar_ditolak`): a double pending commitment
-(`ERR_COMMITMENT_ALREADY_PENDING`), an apply req ≠ the commitment (`ERR_COMMITMENT_MISMATCH`),
+Covered by the contract tests (e.g. `sec107_replaying_same_chat_id_rejected`,
+`vc006_commitment_mismatch_rejected`, `vc006_payload_for_other_strain_rejected`,
+`vc006_signer_unregistered_rejected`): an apply req ≠ the commitment (`ERR_COMMITMENT_MISMATCH`),
 **signature/chat_id reuse** → `ERR_TEE_REPLAY` (`I-06` — `used_tee_chat_ids` stores the
 `chat_id` since the first apply; a replay with a new commitment is still caught), a payload
 for another strain → `ERR_PAYLOAD_STRAIN_MISMATCH`, an unregistered signer → `ERR_SIGNER_NOT_REGISTERED`.
-Status: **CLOSED** (4 tests).
+The production guard for a double pending commitment (`ERR_COMMITMENT_ALREADY_PENDING`, `fn commit_genome_experiment`)
+is in the code, but no test asserts that rejection yet — the regression test is pending.
+Status: **CLOSED for the guards above (4 tests); the double-commitment regression test pending**.
 
 ## SEC-117 — The dividend claim limits
 
-Covered by the contract tests `dk033_klaim_ganda_ditolak`, `dk033_klaim_kedaluwarsa_ditolak`,
-`dk033_klaim_epoch_berjalan_ditolak`: `dividend_claimed` is unique per `(epoch, strain)`
+Covered by the contract tests `dk033_double_claim_rejected`, `dk033_expired_claim_rejected`,
+`dk033_claim_running_epoch_rejected`: `dividend_claimed` is unique per `(epoch, strain)`
 (`ERR_DIVIDEND_ALREADY_CLAIMED`), an 8-epoch window (`ERR_DIVIDEND_CLAIM_EXPIRED` after
 current−8 is missed), a running epoch is rejected (`ERR_EPOCH_NOT_CLOSED`), the payout is capped at the pool +
 the rounding remainder is carried. Status: **CLOSED** (4 tests TC-DIV-01..07).
 
 ## SEC-118 — The adopt vs harvest vs second-adopt race
 
-The new test `qa_ma_tests.rs::sec118_race_adopt_vs_adopt_dan_harvest`:
-- **adopt vs adopt**: raider A wins (nonce 0 → rises), raider B with the expected nonce 0 →
-  stale (`ERR_STATE_NONCE_CHANGED_SELLER_DRAIN_BLOCKED`) — one winner, guaranteed by the nonce.
-- **adopt vs harvest**: the windows are **disjoint by design** — adopt requires `1..=2000`
-  (`ERR_NOT_DISTRESSED` outside), harvest requires `== 0` (`ERR_STRAIN_NOT_INSOLVENT`).
-  No state point satisfies both → no race; tested in both directions.
-Status: **CLOSED** (test).
+The guards are in the code (adopt and hostile require a fresh `state_nonce` via
+`assert_atomic_ready` → `ERR_STATE_NONCE_CHANGED_SELLER_DRAIN_BLOCKED`; adopt requires the
+Distressed window `1..=2000` → `ERR_NOT_DISTRESSED` outside; harvest requires
+`effective_vitality == 0` → `ERR_STRAIN_NOT_INSOLVENT`), and the adopt-vs-adopt
+nonce behavior is covered by `sec110_adopt_stale_nonce_rejected`. The dedicated
+adopt-vs-harvest race test described earlier does **not** exist in the repo —
+the earlier claim that a new test covers both directions was an overclaim; the
+regression test is pending.
+Status: **guards live; the dedicated race regression test pending**.
 
 ## The status summary
 
@@ -82,10 +85,10 @@ Status: **CLOSED** (test).
 | SEC-111 | `pending_callbacks` decorative (never set) | **FIXED** — a real lock at the promise boundary (SEC-111: complete) |
 | SEC-112 | 0 risky lines (every subtraction asserted, additions saturating) | CLOSED |
 | SEC-113 | the complete matrix `docs/security.md` | CLOSED |
-| SEC-114/115 | TEE replay/double commitments — 4 tests | CLOSED |
+| SEC-114/115 | TEE replay/commit mismatch — 4 tests; the double-commitment rejection guard is live but its regression test is pending | CLOSED (partial: double-commitment test pending) |
 | SEC-116 | this document | — |
 | SEC-117 | unique claims + an 8-epoch window — 4 tests | CLOSED |
-| SEC-118 | the adopt/harvest race — disjoint windows + the nonce | CLOSED |
+| SEC-118 | the adopt/harvest race — the guards are live (`state_nonce`, disjoint windows); the dedicated race test is pending | OPEN (guards live; regression test pending) |
 
 A re-check in the `contracts` repo: `cargo test` (0 failures) +
 `cargo clippy --all-targets -- -D warnings` (0 warnings). $SNACC testnet has no monetary value.
