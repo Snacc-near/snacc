@@ -80,13 +80,45 @@ Source: Spec API Backend dan TEE §2. The implementation status in the `backend`
 | `GET /api/strains/:id/svg` | `image/svg+xml` (from `nft_token`) | stub |
 | `GET /api/colony/:owner` | the owner's Strain list (`EN-08`) | stub |
 | `GET /api/dividends` | `industrial_dividend_pool` + the claim history (`DK-033`) | stub |
-| `GET /api/zones` | the zone transition history (`zone_changed`) | stub |
+| `GET /api/zones` | `{ current, history: ZoneHistoryEntry[], history_complete, indexer_incomplete }` | implemented (history from the absorbed `zone_changed` events; see §2.5) |
 | `GET /api/appetite` | the appetite meter (`EN-05`) | stub |
 | `GET /api/events` | `NEP-297` events from log polling | ✅ scaffold |
 | `POST /api/tee/evaluate-genome` | `{ chatId, signedText, signatureHex, signingAddress, mutation, redactionReport }` | stub (in `oracle-tee`) |
 | `GET /api/tee/attestation-report` | `{ model, signingAddress, gatewayAttestation, modelAttestations }` | stub |
 
 Stub endpoints respond `501` with `{ "error": "not_implemented", "todo": "<backlog ID>" }` — they never invent data.
+
+### 2.5 `GET /api/zones` (implemented, `EN-106`)
+
+`{ current, history, history_complete, indexer_incomplete, history_note, contractId, blockHeight }`.
+`history` flattens the absorbed `zone_changed` events (ascending by `block_height`); `block_height`
+and `receipt_id` come from the poller, the zone fields are copied verbatim from the event payload.
+`indexer_incomplete = !store.indexerComplete`: while the poller is incomplete, the history only
+covers events captured since process start (the contract exposes no zone-history view). Missing
+poller metadata is `null`, never fabricated. Example (from the network-free test fixture — the
+numbers illustrate the shape, they are not live data):
+
+```json
+{
+  "current": {
+    "zone": "FEVER",
+    "crucible_temp": 673,
+    "current_epoch": 2,
+    "last_zone": "Fever",
+    "fever_threshold_mk": 610,
+    "hypothermia_threshold_mk": 600
+  },
+  "history": [
+    { "kind": "zone_changed", "block_height": 100, "receipt_id": "r1", "from_zone": "HYPOTHERMIA", "to_zone": "NORMAL", "crucible_temp": 650 },
+    { "kind": "zone_changed", "block_height": 300, "receipt_id": "r2", "from_zone": "NORMAL", "to_zone": "FEVER", "crucible_temp": 1500 }
+  ],
+  "history_complete": false,
+  "indexer_incomplete": true,
+  "history_note": "zone_changed history only includes events captured by the poller since process start; the contract does not expose a zone history view.",
+  "contractId": "snacc-v001.testnet",
+  "blockHeight": 555
+}
+```
 
 ## 3. The `NEP-297` event format
 
