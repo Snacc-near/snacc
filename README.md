@@ -12,8 +12,10 @@ One `Homunculus Strain` (`NEP-171`/`NEP-177`) has a `$SNACC` stomach + a `NEP-24
 | `oracle-tee` | `M3` | Dual-Layer Redaction + the `z-ai/glm-5.3-flash` client + the ed25519 verifier |
 | `sdk` | `M4` | `lab-sdk`: Function Call Keys (0-popup) + `SnaccClient` |
 | `backend` | `M5` | The `NEP-297` indexer + the `/api/crucible/*` API |
-| `frontend` | `M6` | the cell-cultivation game: isometric Colony Plate arena + Cell Lab bio-reactor (run locally, not publicly deployed yet) |
+| `frontend` | `M6` | the cell-cultivation game: isometric Colony Plate arena + Cell Lab bio-reactor — live at [snacc-nu.vercel.app](https://snacc-nu.vercel.app) |
 | `scripts` | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, economic simulations |
+
+**Play in the browser:** [snacc-nu.vercel.app](https://snacc-nu.vercel.app) — opens in `demo · simulated`; switch to `live testnet` to read `snacc-v001.testnet` through the read-only backend (no wallet needed to look around).
 
 ## Quick start (judges: Node.js 22+, no keys, no `npm install`)
 
