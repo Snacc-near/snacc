@@ -1,48 +1,48 @@
-# Snacc — Arsitektur
+# Snacc — Architecture
 
-> Ringkasan arsitektur teknis Snacc untuk juri & kontributor. Sumber kebenaran desain: vault `snacc-vault` (privat). Angka mengikuti **Kamus Angka Resmi** (`snacc-vault/04 Arsitektur/Snacc - Model Data.md`). Status implementasi mengikuti Backlog Master — dokumen ini membedakan apa yang **sudah ada di kode** vs **rencana spec**.
+> A technical architecture summary of Snacc for judges & contributors. Source of design truth: the `snacc-vault` vault (private). Numbers follow the **Kamus Angka Resmi** (`snacc-vault/04 Arsitektur/Snacc - Model Data.md`). The implementation status follows Backlog Master — this document distinguishes what **already exists in code** vs **planned in the spec**.
 
-## 1. Polyrepo (org GitHub `Snacc-near`)
+## 1. Polyrepo (the GitHub org `Snacc-near`)
 
-| Repo | Modul | Isi | Status |
+| Repo | Module | Contents | Status |
 | --- | --- | --- | --- |
-| [`snacc`](../README.md) (payung) | — | README, docs, orkestrasi demo | aktif |
-| [`contracts`](https://github.com/Snacc-near/contracts) | `M1` + `M2` | Kontrak Rust `snacc-v001.near` (`near-sdk =5.29.1`, `rustc 1.99.1`) — semua mekanik | `VC-001..006` ter-merge, 53 test |
-| [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | `M3` | Klien TEE + verifikator ed25519 + redaksi lokal deterministik (Layer 1, `ADR-05`); panggilan cloud `/v1/privacy/redact` dicoba dengan *graceful fallback* — endpoint itu 404 untuk `glm-5.3-flash` (Spike S2.2), jadi Layer 2 tidak pernah berjalan pada model ini | `TEE-101..104` ter-merge, 14 test |
-| [`sdk`](https://github.com/Snacc-near/sdk) | `M4` | `lab-sdk`: parser event NEP-297; `SnaccClient` + Function Call Keys menyusul | `SDK-107..108` ter-merge, 15 test |
-| [`backend`](https://github.com/Snacc-near/backend) | `M5` | Indexer `NEP-297` + API `/api/crucible/*` | scaffold (`INT-101..108` berjalan) |
-| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough | **belum dikerjakan** (urutan FE terakhir, menunggu acc pemilik) |
-| [`scripts`](https://github.com/Snacc-near/scripts) | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, simulasi ekonomi | aktif |
+| [`snacc`](../README.md) (umbrella) | — | README, docs, demo orchestration | active |
+| [`contracts`](https://github.com/Snacc-near/contracts) | `M1` + `M2` | The `snacc-v001.near` Rust contract (`near-sdk =5.29.1`, `rustc 1.99.1`) — all mechanics | `VC-001..006` merged, 53 tests |
+| [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | `M3` | The TEE client + the ed25519 verifier + deterministic local redaction (Layer 1, `ADR-05`); the `/v1/privacy/redact` cloud call is attempted with *graceful fallback* — that endpoint 404s for `glm-5.3-flash` (Spike S2.2), so Layer 2 never runs on this model | `TEE-101..104` merged, 14 tests |
+| [`sdk`](https://github.com/Snacc-near/sdk) | `M4` | `lab-sdk`: the NEP-297 event parser; `SnaccClient` + Function Call Keys to follow | `SDK-107..108` merged, 15 tests |
+| [`backend`](https://github.com/Snacc-near/backend) | `M5` | The `NEP-297` indexer + the `/api/crucible/*` API | scaffold (`INT-101..108` in progress) |
+| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough | **not yet worked on** (FE is sequenced last, waiting for the owner's approval) |
+| [`scripts`](https://github.com/Snacc-near/scripts) | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, economic simulations | active |
 
-## 2. Empat lapis mekanisme
+## 2. The four mechanism layers
 
-| Lapis | Nama | Fungsi | Modul |
+| Layer | Name | Function | Module |
 | --- | --- | --- | --- |
-| 1 | **Living NFT** | Organisme ber-neraca: sub-account `s-<id>.snacc-v001.near`, vitalitas & BMR (Lazy evaluation, `ADR-22`), SVG `NEP-177` hidup | `M1`, `M2` |
-| 2 | **Rantai pasok & korporasi** | Transmutasi 3 tahap `NEP-245` (`mt_burn` → `mt_mint` × `efficiency_bps`), role bitmask Coasean (`ADR-25`), merger `splice_strains` + `hostile_takeover_splice` (`ADR-26`), likuidasi `harvest_starving_strain`, koloni multi-sel dengan pagar populasi | `M1` |
-| 3 | **Genom rahasia (TEE)** | Formula mutasi dievaluasi `z-ai/glm-5.3-flash` di enclave NEAR AI Cloud; kontrak memverifikasi sendiri: `env::sha256` rekonstruksi + `env::ed25519_verify` + anti-replay `chat_id` + guardrail ±1500 bps (`ADR-21`, `I-03`, `I-06`, `I-07`, `I-16`) | `M1`, `M3` |
-| 4 | **Bank sentral makro** | Termostat `CrucibleTemp`: Fever `>1400 mK` → burn 350 bps fee; Hypothermia `<600 mK` → subsidi 200 bps dari treasury, cap 500 bps/epoch (`I-04`); Industrial Dividend Pool 50% fee non-burn | `M1`, `M5` |
+| 1 | **Living NFT** | A balance-sheet organism: the `s-<id>.snacc-v001.near` sub-account, vitality & BMR (lazy evaluation, `ADR-22`), a living `NEP-177` SVG | `M1`, `M2` |
+| 2 | **Supply chain & corporates** | The 3-stage `NEP-245` transmutation (`mt_burn` → `mt_mint` × `efficiency_bps`), the Coasean role bitmask (`ADR-25`), mergers `splice_strains` + `hostile_takeover_splice` (`ADR-26`), liquidation `harvest_starving_strain`, a multi-cell colony under population fences | `M1` |
+| 3 | **Secret genome (TEE)** | The mutation formula is evaluated by `z-ai/glm-5.3-flash` inside the NEAR AI Cloud enclave; the contract verifies it itself: `env::sha256` reconstruction + `env::ed25519_verify` + `chat_id` anti-replay + a ±1500 bps guardrail (`ADR-21`, `I-03`, `I-06`, `I-07`, `I-16`) | `M1`, `M3` |
+| 4 | **Macro central bank** | The `CrucibleTemp` thermostat: Fever `>1400 mK` → burns 350 bps of the fee; Hypothermia `<600 mK` → a 200 bps subsidy from the treasury, capped at 500 bps/epoch (`I-04`); the Industrial Dividend Pool takes 50% of the non-burned fee | `M1`, `M5` |
 
-## 3. Alur data utama
+## 3. The main data flows
 
 ```
 Alkemis (E1) --Function Call Keys (0-popup)--> biolab-ui (M6)
     --call--> snacc-v001.near (M1: state D1-D8, event NEP-297 -> D9)
-    --Tahap 1 redaksi--> oracle-tee (M3) --POST /v1/chat/completions--> NEAR AI Cloud TEE (E3)
+    --Stage 1 redaction--> oracle-tee (M3) --POST /v1/chat/completions--> NEAR AI Cloud TEE (E3)
     <--{chat_id, signature ed25519}--  E3
-    --apply_tee_mutation_zero_trust--> M1 (verifikasi on-chain, guardrail)
+    --apply_tee_mutation_zero_trust--> M1 (on-chain verification, guardrail)
 backend (M5): poll block/event NEP-297 -> /api/crucible/* -> M6 & M7
 scripts (M7): verify:thesis (RPC benchmark) + demo:replay (offline, 0 API key)
 ```
 
-## 4. Keputusan desain kunci (ADR)
+## 4. Key design decisions (ADR)
 
-33 ADR terdokumentasi di vault; yang paling menentukan bentuk kode:
+33 ADRs are documented in the vault; the ones that most shape the code:
 
-- `ADR-04/27` — rumus `CrucibleTemp = floor(1000 × V_decayed / max(supply, 1))` dengan lazy decay (`VOLUME_DECAY_PER_SEC = 50`), tanpa cron.
-- `ADR-21/33` — verifikasi TEE zero-trust 2-fase + registri `attested_tee_signers` yang bisa dirotasi.
-- `ADR-25/26` — role bitmask Coasean (`1=Extractor`, `2=Fermenter`, `4=Synthesizer`); multi-bit hanya lewat merger; tangga solvensi 3 tingkat.
-- `ADR-29` — anti-drain `state_nonce` + `pending_callbacks == 0` (mencegah ERC-6551 seller front-running).
-- `ADR-30/31` — 3 NPC otonom on-chain + dual-skin UI (FinTech/Bio-Lab).
+- `ADR-04/27` — the `CrucibleTemp = floor(1000 × V_decayed / max(supply, 1))` formula with lazy decay (`VOLUME_DECAY_PER_SEC = 50`), cron-free.
+- `ADR-21/33` — the 2-phase zero-trust TEE verification + a rotatable `attested_tee_signers` registry.
+- `ADR-25/26` — the Coasean role bitmask (`1=Extractor`, `2=Fermenter`, `4=Synthesizer`); multi-bit only through mergers; a 3-rung solvency ladder.
+- `ADR-29` — the anti-drain `state_nonce` + `pending_callbacks == 0` (prevents ERC-6551 seller front-running).
+- `ADR-30/31` — 3 autonomous on-chain NPCs + a dual-skin UI (FinTech/Bio-Lab).
 
 Lihat juga: [security.md](security.md) · [api-schemas.md](api-schemas.md) · [partner-onboarding.md](partner-onboarding.md)

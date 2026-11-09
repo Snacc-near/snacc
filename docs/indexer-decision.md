@@ -1,37 +1,37 @@
-# RES-117 — Keputusan Mesin Indexer M5 (tercatat 2026-11-08)
+# RES-117 — The M5 Indexer Engine Decision (recorded 2026-11-08)
 
-> Status: **rekomendasi tercatat** (keputusan final = pemilik). Kriteria utama hackathon:
-> time-to-demo, tanpa API key, dan bukti dapat diverifikasi dari data on-chain yang sama.
+> Status: a **recorded recommendation** (the final decision = the owner). The main hackathon criteria:
+> time-to-demo, no API key, and evidence verifiable from the same on-chain data.
 
-## 1. Kandidat & hasil riset nyata (dicek 2026-11-08)
+## 1. Candidates & real research results (checked 2026-11-08)
 
-| Kandidat | Yang dicek | Hasil |
+| Candidate | What was checked | Result |
 | --- | --- | --- |
-| **A. NEAR Indexer Framework** (near/ near-lake) | butuh infrastructur sendiri (self-host Lambda/Pod + DB Postgres); setup jam-hari | ⚠️ powerful tapi overkill untuk demo window |
-| **B. Goldsky NEAR** | butuh akun Goldsky + API key + pipeline config | ⚠️ butuh signup; tidak "zero-config" — ditunda pasca-hackathon |
-| **C. Envio HyperIndex** | butuh config codegen + deploy hosted service | ⚠️ sama: butuh akun & deploy pipeline |
-| **D. API explorer publik (FastNEAR/NearBlocks/KitWallet/Pikespeak)** | diprobe langsung dengan `curl` tanpa key: FastNEAR v0/v1 = 404 untuk akun gladi; NearBlocks = 404; KitWallet = 404; Pikespeak = 401 (butuh key) | ❌ tidak ada yang memberi data `snacc-v001.testnet` tanpa key/registrasi |
-| **E. Fallback: baca receipt langsung via RPC + `demo:replay` dari manifest ter-commit** | sudah JALAN: `gladi-kpi.mjs` + `demo-replay.mjs` + `gas-profile.mjs` membaca tx/receipt langsung via RPC publik (0 API key) | ✅ **terbukti bekerja di gladi (48+ tx)** |
+| **A. NEAR Indexer Framework** (near/ near-lake) | requires its own infrastructure (self-hosted Lambda/Pods + a Postgres DB); setup takes days | ⚠️ powerful but overkill for the demo window |
+| **B. Goldsky NEAR** | requires a Goldsky account + an API key + pipeline config | ⚠️ requires signup; not "zero-config" — postponed to post-hackathon |
+| **C. Envio HyperIndex** | requires codegen config + deploying a hosted service | ⚠️ same: requires an account & pipeline deployment |
+| **D. Public explorer APIs (FastNEAR/NearBlocks/KitWallet/Pikespeak)** | probed directly with `curl` without a key: FastNEAR v0/v1 = 404 for the gladi account; NearBlocks = 404; KitWallet = 404; Pikespeak = 401 (needs a key) | ❌ none of them serves `snacc-v001.testnet` data without a key/registration |
+| **E. Fallback: read receipts directly via RPC + `demo:replay` from the committed manifest** | already RUNNING: `gladi-kpi.mjs` + `demo-replay.mjs` + `gas-profile.mjs` read txs/receipts directly via the public RPC (0 API keys) | ✅ **proven to work in the gladi (48+ tx)** |
 
-## 2. Rekomendasi (tercatat)
+## 2. Recommendation (recorded)
 
-- **Demo/juri (SEKARANG)**: tetap **opsi E** — parsing `EVENT_JSON` langsung dari
-  `tx`/`EXPERIMENTAL_tx_status` RPC + manifest yang di-commit. Sudah terbukti: KPI auto-check,
-  gas-profile, dan demo:replay semuanya berbasis jalur ini (zero-key, reproducible).
-- **Backend M5 produksi (pasca-hackathon)**: **Indexer Framework (A)** untuk data historis
-  penuh + agregat, karena backend kita hanya perlu read-only feed event (tanpa write ke
-  chain) — model NEAR Indexer-Lake Framework (Lake prune) adalah default ekosistem NEAR.
-  Goldsky/Envio dievaluasi ulang BILA kebutuhan realtime subgraph-style query muncul.
-- **Jangan**: bergantung pada explorer API pihak ketiga (D) — seluruh probe tanpa key
-  menghasilkan 404/401 untuk akun kita (fragile, rate-limit, dan menambah dependensi
-  pihak ketiga yang tidak dikontrol).
+- **Demo/judges (NOW)**: stay with **option E** — parsing `EVENT_JSON` directly from the
+  `tx`/`EXPERIMENTAL_tx_status` RPC + the committed manifest. Already proven: the KPI auto-check,
+  gas-profile, and demo:replay are all built on this path (zero-key, reproducible).
+- **The production M5 backend (post-hackathon)**: **Indexer Framework (A)** for full historical
+  data + aggregates, because our backend only needs a read-only event feed (no writes to
+  the chain) — the NEAR Indexer-Lake Framework model (Lake prune) is the NEAR ecosystem default.
+  Goldsky/Envio get re-evaluated IF the need for realtime subgraph-style queries arises.
+- **Do not**: depend on third-party explorer APIs (D) — every keyless probe
+  returned 404/401 for our accounts (fragile, rate-limited, and it adds a third-party
+  dependency we do not control).
 
-## 3. Konsekuensi & langkah lanjut
+## 3. Consequences & next steps
 
-1. Backend `/api/events` sementara dibangun di atas parser event (jalur E) — skema lihat
+1. The backend `/api/events` is for now built on the event parser (path E) — see the schema in
    `docs/api-schemas.md` §event (parser: `sdk:src/events.ts`).
-2. Bila demo butuh query historis kompleks (mis. semua klaim per epoch), tambahkan
-   cache on-chain (view agregat) ATAU jalankan indexer framework lokal dalam satu container
-   (opsi A) — bukan keputusan hari ini.
-3. Falsifier dokumen ini: bila salah satu API publik (D) mulai mengembalikan data akun kita
-   tanpa key, rekomendasi boleh ditinjau ulang (kandidat fallback paling ringan).
+2. If the demo needs complex historical queries (e.g. all claims per epoch), add an
+   on-chain cache (aggregate views) OR run the indexer framework locally in one container
+   (option A) — not today's decision.
+3. This document's falsifier: if one of the public APIs (D) starts returning our account data
+   without a key, the recommendation may be revisited (the lightest fallback candidate).

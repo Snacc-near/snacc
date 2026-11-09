@@ -1,61 +1,61 @@
-# EN-117 — Resolusi DoD vs Implementasi Final (RESOLVED 2026-11-08)
+# EN-117 — DoD vs Final Implementation Resolution (RESOLVED 2026-11-08)
 
-> Status: **RESOLVED — keputusan pemilik 2026-11-08 (suhu literal ATP, pilihan "paling
-> seru") telah diimplementasikan & dikalibrasi.** Riwayat resolusi usulan ada di bawah.
+> Status: **RESOLVED — the owner decision of 2026-11-08 (temperature is literal ATP, the "most
+> exciting" choice) has been implemented & calibrated.** The history of the proposal resolutions is below.
 
-## 1. Literal DoD EN-117 (Backlog Master §13a)
+## 1. The literal EN-117 DoD (Backlog Master §13a)
 
-> "`VOLUME_SCALE` | `1000` sementara → final saat `ECON-111`; `volume_epoch += atp_minted × VOLUME_SCALE`"
+> "`VOLUME_SCALE` | `1000` temporary → final at `ECON-111`; `volume_epoch += atp_minted × VOLUME_SCALE`"
 
-Interpretasi literal: **satu-satunya** penyumbang `volume_epoch` adalah `ATP_minted × VOLUME_SCALE`
-dengan `VOLUME_SCALE` sementara `1000`.
+The literal interpretation: the **only** contributor to `volume_epoch` is `ATP_minted × VOLUME_SCALE`
+with `VOLUME_SCALE` temporarily `1000`.
 
-## 2. Implementasi final (terpasang di kontrak, pipeline #4)
+## 2. The final implementation (installed in the contract, pipeline #4)
 
-Per **laporan sweep econ-report-3 §1** (ringkasan publik: `docs/econ-sweep-opsib.md`; ECON-111 Opsi B — keputusan pemilik 2026-11-07/08):
+Per the **econ-report-3 §1 sweep report** (public summary: `docs/econ-sweep-opsib.md`; ECON-111 Option B — the owner decision of 2026-11-07/08):
 
-- `VOLUME_SCALE = 5` (bukan 1000) — hasil sweep 20 skala × 10.000 epoch;
-- `V_epoch` = **omset ekonomi bruto multi-kaki**:
-  - K1 = `snacc_catalyst_fee` (fee transmutasi, ×1);
-  - K2 = `mt_burn` unit × `VOLUME_SCALE(5)` × `P_BASE(100)`;
-  - K3 = `mt_mint` unit × `VOLUME_SCALE(5)` × `P_BASE(100)`;
-  - K4 = kas likuidasi (bounty + recovery);
-  - **eksklusi anti-feedback**: rebate `I-04`, klaim dividen, `ft_transfer`, modal inkubasi;
-- `ATP` **tidak** menambah `volume_epoch` — ATP adalah energi kerja internal (biaya
-  extract/transmute/synthesize/splice/hostile/divide), bukan komponen suhu.
+- `VOLUME_SCALE = 5` (not 1000) — the result of a sweep of 20 scales × 10,000 epochs;
+- `V_epoch` = a **multi-leg gross economic turnover**:
+  - K1 = `snacc_catalyst_fee` (the transmutation fee, ×1);
+  - K2 = `mt_burn` units × `VOLUME_SCALE(5)` × `P_BASE(100)`;
+  - K3 = `mt_mint` units × `VOLUME_SCALE(5)` × `P_BASE(100)`;
+  - K4 = liquidation cash (bounty + recovery);
+  - **anti-feedback exclusions**: the `I-04` rebate, dividend claims, `ft_transfer`, incubation capital;
+- `ATP` does **not** add to `volume_epoch` — ATP is internal work energy (the cost of
+  extract/transmute/synthesize/splice/hostile/divide), not a temperature component.
 
-## 3. Mengapa literal DoD tidak bisa dipakai (alasan teknis, dari kalibrasi)
+## 3. Why the literal DoD could not be used (technical reasons, from the calibration)
 
-1. **Magnitudo**: `ATP_minted = fee/10^15 × …` — dengan fee gladi riil (10^13 yocto),
-   `ATP_minted ≈ 0,01 → 0` setelah floor; `× 1000` tetap 0 → termostat **tidak pernah hidup**.
-2. **Feedback loop**: ATP dicetak DARI fee — memasukkannya lagi ke suhu menciptakan
-   lingkaran fee→ATP→suhu→burn yang bisa diperbesar sendiri (anti-pattern termostat).
-3. **Validasi empiris**: sweep ECON-111 (20 skala × 10.000 epoch, seed tetap) membuktikan
-   definisi kaki multi-leg menghasilkan band target (Fever 5–30%, populasi hidup, treasury
-   solvent) — definisi literal tidak punya titik operasi yang sehat.
+1. **Magnitude**: `ATP_minted = fee/10^15 × …` — with real gladi fees (10^13 yocto),
+   `ATP_minted ≈ 0.01 → 0` after flooring; `× 1000` stays 0 → the thermostat **never comes alive**.
+2. **Feedback loop**: ATP is minted FROM the fee — feeding it back into the temperature creates a
+   fee→ATP→temperature→burn loop that can amplify itself (a thermostat anti-pattern).
+3. **Empirical validation**: the ECON-111 sweep (20 scales × 10,000 epochs, a fixed seed) proves
+   the multi-leg definition produces the target band (Fever 5–30%, a living population, a solvent
+   treasury) — the literal definition has no healthy operating point.
 
-## 4. Resolusi final (disahkan — pemilik, 2026-11-08)
+## 4. The final resolution (ratified — the owner, 2026-11-08)
 
-> **DoD EN-117 final**: "`V_epoch` = **atp_minted × ATP_VOLUME_SCALE + kaki ekonomi
-> (K1 fee + K2/K3 molekul + K4 kas likuidasi)**" — komposisi hybrid: ATP literal sebagai
-> bobot utama feed + kaki ekonomi sebagai bobot pendamping; `VOLUME_SCALE(1000)` lama
-> ditarik, diganti **`ATP_VOLUME_SCALE = 6×10^14`** (kontrak) / `3000` (sim).
+> **The final EN-117 DoD**: "`V_epoch` = **atp_minted × ATP_VOLUME_SCALE + the economic
+> legs (K1 fee + K2/K3 molecules + K4 liquidation cash)**" — a hybrid composition: literal ATP as
+> the main feed weight + the economic legs as companion weights; the old `VOLUME_SCALE(1000)` is
+> withdrawn and replaced by **`ATP_VOLUME_SCALE = 6×10^14`** (contract) / `3000` (sim).
 
-**Angka sweep** (econ-report-4, keluaran `scripts/econ-calib-atp.mjs`; 10 skala × 10.000 epoch): semua skala in-band
-(fever 5,9→23,8%, tanpa death spiral); terpilih **S=3000 → fever 8,5% (tengah band),
-populasi 73, supply −17,7%, treasury solvent**; freeze falsifikasi = sifat BMR (bukan
-kegagalan termostat). Pemetaan sim→kontrak: share ATP 0,370 → `S_c = 6×10^14`
-(share kontrak 0,375 — invarian terhadap ukuran feed).
+**The sweep numbers** (econ-report-4, the output of `scripts/econ-calib-atp.mjs`; 10 scales × 10,000 epochs): every scale is in-band
+(fever 5.9→23.8%, no death spiral); the chosen **S=3000 → fever 8.5% (mid-band),
+population 73, supply −17.7%, treasury solvent**; the freeze falsifier = the BMR property (not
+a thermostat failure). The sim→contract mapping: the ATP share 0.370 → `S_c = 6×10^14`
+(the contract share 0.375 — invariant to the feed size).
 
-**Kontrak terpasang**: `feed_strain` menghitung `atp_minted` SEBELUM termostat dan
-menambahkan `atp_minted × ATP_VOLUME_SCALE` ke `volume_epoch` epoch yang sama
+**Installed in the contract**: `feed_strain` computes `atp_minted` BEFORE the thermostat and
+adds `atp_minted × ATP_VOLUME_SCALE` to the same epoch's `volume_epoch`
 (`apply_thermostat_fee(strain_id, fee, extra_volume)`).
 
-Riwayat resolusi usulan awal (Opsi multi-kaki murni) dipertahankan di bawah untuk jejak.
+The history of the initial proposal resolution (the pure multi-leg Option) is kept below for the audit trail.
 
-## 5. Jejak
+## 5. Trace
 
-- Kalibrasi: econ-report-3, keluaran `scripts/econ-calib-opsib.mjs` (ringkasan: `docs/econ-sweep-opsib.md`).
-- Pemasangan: pipeline #4 (commit `EN-114..119` — `TermostatParams`, `add_volume_legs`).
-- Test pengunci: `qa_macro_tests::tc_macro_*`, `qa_svg_tests::tc_svg_02/03`,
+- Calibration: econ-report-3, the output of `scripts/econ-calib-opsib.mjs` (summary: `docs/econ-sweep-opsib.md`).
+- Installation: pipeline #4 (the `EN-114..119` commit — `TermostatParams`, `add_volume_legs`).
+- Locking tests: `qa_macro_tests::tc_macro_*`, `qa_svg_tests::tc_svg_02/03`,
   `econ111_volume_multikaki_dan_eksklusi`.

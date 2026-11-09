@@ -1,50 +1,50 @@
 # Snacc — NEAR HACKATHON
 
-Snacc ($SNACC) — *NFTs that eat a memecoin. Feed your Snacc or it gets snacked.* Lapisan permainan ekonomi on-chain NEAR: NFT organisme hidup ber-neraca, rantai pasok `NEP-245`, bank sentral algoritmik `CrucibleTemp`, dan verifikasi AI rahasia di `NEAR AI Cloud TEE`. Build window: 1–14 Nov 2026 (submission tutup 2026-11-14T23:59Z). Track: `memecoins` + `nfts` (klaim track lain hanya dengan hash bukti).
+Snacc ($SNACC) — *NFTs that eat a memecoin. Feed your Snacc or it gets snacked.* An on-chain economy game layer on NEAR: living balance-sheet NFT organisms, a `NEP-245` supply chain, an algorithmic central bank `CrucibleTemp`, and secret AI verification in `NEAR AI Cloud TEE`. Build window: Nov 1–14, 2026 (submission closes 2026-11-14T23:59Z). Tracks: `memecoins` + `nfts` (claiming other tracks only with hash evidence).
 
-**Wajib juga ikuti aturan global** (hemat usage, cara ubah file, batasi output, pakai subagent): @~/.claude/CLAUDE.md
+**You must also follow the global rules** (usage thrift, how to change files, output limits, use subagents): @~/.claude/CLAUDE.md
 
-**Cakupan:** file ini mengatur proyek Snacc (`repos/Snacc/*` di org `Snacc-near`, `snacc-vault/`, log `Progress Snacc`). Aturan root `CLAUDE.md` (x207) berlaku umum; bila bertentangan untuk urusan Snacc, **file ini yang menang**.
+**Scope:** this file governs the Snacc project (`repos/Snacc/*` in the `Snacc-near` org, `snacc-vault/`, the `Progress Snacc` log). The root `CLAUDE.md` rules (x207) apply generally; when they conflict on Snacc matters, **this file wins**.
 
-- Sumber kebenaran desain: `snacc-vault/` (mulai dari `Snacc Hub.md`). **Angka WAJIB dari Kamus Angka Resmi** (`snacc-vault/04 Arsitektur/Snacc - Model Data.md`) — nilai lain superseded, jangan dipakai.
-- Backlog & pemilik item: `snacc-vault/09 Backlog/Snacc - Backlog Master.md` (**label `@pemilik · Lx`** di setiap baris) + `Snacc - Pembagian Tim.md`. Urutan eksekusi: Backlog Master §12.
-- Repo: `repos/Snacc/` (payung) + `contracts`, `oracle-tee`, `sdk`, `backend`, `frontend`, `scripts` — org GitHub **`Snacc-near`** (7 repo **public**; `snacc-vault` **private**, jangan pernah dijadikan public).
-- Tim: `@shenhan` (medium–high + FE inti), `@esther` (easy), `@arya` (easy–medium). **100% commit partner direview Shenhan** sebelum masuk.
-- Log proyek: `vault/00 Log/Progress/Progress Snacc.md`.
+- Source of design truth: `snacc-vault/` (start from `Snacc Hub.md`). **Numbers MUST come from the official Number Dictionary** (`snacc-vault/04 Arsitektur/Snacc - Model Data.md`) — other values are superseded, do not use them.
+- Backlog & item owners: `snacc-vault/09 Backlog/Snacc - Backlog Master.md` (**the `@pemilik · Lx` label** on every row) + `Snacc - Pembagian Tim.md`. Execution order: Backlog Master §12.
+- Repos: `repos/Snacc/` (this umbrella) + `contracts`, `oracle-tee`, `sdk`, `backend`, `frontend`, `scripts` — GitHub org **`Snacc-near`** (7 **public** repos; `snacc-vault` is **private**, never make it public).
+- Team: `@shenhan` (medium–high + core FE), `@esther` (easy), `@arya` (easy–medium). **100% of partner commits are reviewed by Shenhan** before they land.
+- Project log: `vault/00 Log/Progress/Progress Snacc.md`.
 
-## Wajib: vault selalu terbaru
-- **Sebelum mulai, atau saat bingung progress sudah sampai mana, baca vault dulu**, jangan menebak: `snacc-vault/09 Backlog/` (Backlog Master, Pembagian Tim, Rencana Sprint), `Snacc Hub.md`, dan log `Progress Snacc.md`.
-- **Setiap item selesai atau berubah status:** commit di repo terkait dengan pesan `<ID>: <ringkasan>`, perbarui barisnya di Backlog Master (status/label), lalu commit vault dengan `docs: status <ID>`. Item partial ditutup dengan commit `<ID>: complete - <ringkasan>` (atau `partial` bila belum tuntas).
-- Keputusan baru, alamat deploy, dan perubahan spec dicatat di note vault terkait, atau dilaporkan ke pemilik bila sesi tidak boleh mengubahnya.
+## Mandatory: keep the vault up to date
+- **Before you start, or whenever you are confused about where the progress stands, read the vault first**, do not guess: `snacc-vault/09 Backlog/` (Backlog Master, Pembagian Tim, Rencana Sprint), `Snacc Hub.md`, and the `Progress Snacc.md` log.
+- **Whenever an item is finished or changes status:** commit in the relevant repo with the message `<ID>: <summary>`, update its row in Backlog Master (status/label), then commit the vault with `docs: status <ID>`. Partial items are closed with a commit `<ID>: complete - <summary>` (or `partial` when not yet finished).
+- New decisions, deploy addresses, and spec changes are recorded in the related vault note, or reported to the owner when a session is not allowed to change them.
 
-## Wajib: log progress setiap selesai tugas
-Setiap sesi **wajib menulis log sebelum melapor selesai atau berhenti**.
+## Mandatory: write a progress log whenever you finish a task
+Every session **must write the log before reporting done or stopping**.
 
-1. File: `vault/00 Log/Progress/Progress Snacc.md` — hanya tambah di akhir. Format entri:
+1. File: `vault/00 Log/Progress/Progress Snacc.md` — append only at the end. Entry format:
 
    ```markdown
    ## 2026-11-07 11:20 UTC
-   - Selesai: VC-002 (`e496c71`, 7 test lulus)
-   - Sebagian: VC-003 (`0190c40`, method X belum)
-   - Menunggu: <apa yang ditunggu>
-   - Keputusan/pertanyaan: <ringkas, atau "tidak ada">
-   - Bukti: <output test/CI/hash yang dilihat sendiri; yang belum dijalankan tulis "belum dijalankan">
+   - Done: VC-002 (`e496c71`, 7 tests passing)
+   - Partial: VC-003 (`0190c40`, method X not yet)
+   - Waiting: <what is being waited on>
+   - Decisions/questions: <summarized, or "none">
+   - Evidence: <test/CI/hash output you saw yourself; anything not yet run must say "not yet run">
    ```
 
-   Waktu dari `date -u`. Tulis hanya yang benar-benar terjadi.
-2. Commit log itu saja:
+   Time from `date -u`. Write only what actually happened.
+2. Commit only that log:
 
    ```bash
    git -C vault add "00 Log/Progress/Progress Snacc.md" && git -C vault commit -m "log: Snacc" -- "00 Log/Progress/Progress Snacc.md"
    ```
 
-## Aturan tetap
-1. **Heredoc di Bash hanya untuk dua hal:** (1) input ke command, mis. `git commit -m "$(cat <<'EOF' ... EOF)"` atau `python3 -I - <<'EOF` untuk script sekali pakai; (2) menulis banyak file sekaligus lewat loop atau generator. Menulis satu atau beberapa file tidak termasuk: pakai Write (paralel dalam satu pesan) atau Edit, jangan `cat > file <<EOF`. Script `python3 -I - <<'EOF` yang menulis, menyisipkan, atau mengganti teks di file (baris backlog, log progress, docs) juga **bukan** pengecualian; pengecualian (1) hanya untuk script yang membaca atau memeriksa.
-2. **Push & PR:** sesi boleh push **branch `item/<ID>`** dan membuka **PR** ke `Snacc-near`. **Merge ke `main` hanya setelah CI hijau** (atau persetujuan pemilik). Push langsung ke `main` hanya untuk commit infra/docs kecil yang diminta pemilik. Branch dirapikan setelah merge.
-3. **Visibilitas & rilis:** `npm publish`, deploy/transaksi **mainnet**, dan mengubah visibilitas repo **tetap butuh persetujuan eksplisit pemilik**. `snacc-vault` wajib tetap private.
-4. **Testnet diizinkan pemilik untuk gladi:** deploy ulang, akun faucet, transaksi di `testnet` (`snacc.testnet` dkk.). Jangan memindahkan kunci atau akun testnet ke mainnet.
-5. **Batas waktu:** satu item maksimal 45 menit; satu masalah maksimal 3 kali menjalankan test yang sama. Lewat itu commit yang lulus, catat kendala di log, pindah item.
-6. Secret hanya di `.env` (gitignored) dan `.secrets/` di root proyek. Jangan ditampilkan, dicatat, disalin, atau di-commit. Jalankan pindai secret sebelum push.
-7. **Commit dengan path eksplisit**, tidak pernah `git add -A` di repo bersama. Pesan commit diawali ID item (`<ID>: <ringkasan>`); item sebagian beri kata "partial". Pengecualian vault: `docs: status <ID>` dan `log: Snacc`.
-8. **Nama method, event, field, error, endpoint, dan kolom disalin persis** dari spec di `snacc-vault/04 Arsitektur/`.
-9. **Aturan kejujuran:** tanpa hash testnet = tanpa klaim live; dilarang kata "GameFi/investasi/yield" di README (pakai "permainan ekonomi on-chain"); profit = kerja + redistribusi, tanpa jaminan untung; `$SNACC` testnet tanpa nilai uang; volatilitas = fitur, bukan janji.
+## Standing rules
+1. **Heredocs in Bash are allowed for only two things:** (1) input to a command, e.g. `git commit -m "$(cat <<'EOF' ... EOF)"` or `python3 -I - <<'EOF` for one-off scripts; (2) writing many files at once via a loop or generator. Writing one or a few files does not count: use Write (in parallel in one message) or Edit, do not `cat > file <<EOF`. A `python3 -I - <<'EOF` script that writes, inserts, or replaces text in files (backlog rows, progress logs, docs) is also **not** an exception; exception (1) is only for scripts that read or check.
+2. **Push & PR:** sessions may push **the `item/<ID>` branch** and open a **PR** to `Snacc-near`. **Merge to `main` only after CI is green** (or with the owner's approval). Direct pushes to `main` are only for small infra/docs commits requested by the owner. Branches are cleaned up after merge.
+3. **Visibility & release:** `npm publish`, mainnet deploy/transactions, and changing repo visibility **still need the owner's explicit approval**. `snacc-vault` must stay private.
+4. **Testnet is owner-approved for rehearsals:** redeploying, faucet accounts, transactions on `testnet` (`snacc.testnet` etc.). Do not move these keys or accounts to mainnet.
+5. **Time limits:** one item at most 45 minutes; one problem at most 3 runs of the same test. Beyond that, commit what passes, note the obstacle in the log, move to the next item.
+6. Secrets live only in `.env` (gitignored) and `.secrets/` at the project root. Never display, record, copy, or commit them. Run the secret scan before pushing.
+7. **Commit with explicit paths**, never `git add -A` in shared repos. Commit messages start with the item ID (`<ID>: <summary>`); partial items get the word "partial". Vault exceptions: `docs: status <ID>` and `log: Snacc`.
+8. **Method, event, field, error, endpoint, and column names are copied verbatim** from the specs in `snacc-vault/04 Arsitektur/`.
+9. **Honesty rules:** no testnet hash = no live claim; the words "GameFi/investment/yield" are banned in the README (use "on-chain economy game"); profit = work + redistribution, no profit guarantee; `$SNACC` testnet has no monetary value; volatility is a feature, not a promise.
