@@ -1,7 +1,7 @@
 # Snacc — $SNACC Launch Checklist (RES-124 / RES-109)
 
 > **Documents only.** Writing this file performed no transaction, created no account, and deployed nothing. `$SNACC` on testnet has no monetary value; nothing here promises profit or a price.
-> **Hard gate:** any mainnet deployment, listing, or mainnet transaction requires the explicit approval of the project owner (vault Backlog §13b; vault note `Snacc - Kesiapan Listing DEX.md`; decision table `RES-125`). This checklist is neither an approval nor a launch-readiness claim.
+> **Hard gate:** any mainnet deployment, listing, or mainnet transaction requires the explicit approval of the project owner (vault Backlog §13b; the vault's DEX-listing readiness note; decision table `RES-125`). This checklist is neither an approval nor a launch-readiness claim.
 
 ## 1. The Meme.Cooking flow (public research, checked 2026-11-09)
 
@@ -56,7 +56,7 @@
 
 ## 5. Explicit gates
 
-- **A mainnet deployment, a listing, or any mainnet transaction requires the owner's explicit approval** (vault Backlog §13b; vault note `Snacc - Kesiapan Listing DEX.md`; the `RES-125` decision table).
+- **A mainnet deployment, a listing, or any mainnet transaction requires the owner's explicit approval** (vault Backlog §13b; the vault's DEX-listing readiness note; the `RES-125` decision table).
 - Completing a checkbox in §2 or running a step in §4 does **not** authorize any number from §3 or a launch date.
 - `$SNACC` testnet has no monetary value; this document makes no profit claim and no price claim.
 
