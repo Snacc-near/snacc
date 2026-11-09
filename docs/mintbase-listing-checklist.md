@@ -26,7 +26,7 @@ step below requires **explicit owner approval** (project rule) and is therefore 
       function list unchanged, not byte-identical wasm: current deployed code_hash
       `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr`, 517,185 B, GLADI-8 redeploy 2026-11-09 —
       deploy `BF3MfUnpCtcqqXfBWnusDixvHHENBX2FrUHVhbEZQM7V`, migrate
-      `G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25`, built from contracts main `1281154`
+      `G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25`, built from contracts main [1281154](https://github.com/Snacc-near/contracts/commit/1281154a437181cf657e6ced8db71f73909f7ae8)
       including PR #22; the earlier deployment, code_hash
       `3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt`, 406,495 B, is history). Contracts PR #22
       items (`ft_mint`, string `amount`) are live with the same redeploy — `ft_mint` tx
