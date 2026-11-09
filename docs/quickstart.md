@@ -24,7 +24,7 @@ snacc/               # this umbrella (public)
 ├── contracts/       # Rust contract (single atomic unit: NEP-141 + NEP-171/177 + NEP-245 + mechanics)
 ├── sdk/             # lab-sdk (TS): NEP-297 event parser + SnaccClient (npm test)
 ├── backend/         # indexer + /api/crucible/* (M5)
-├── frontend/        # cell-cultivation game UI (M6, run locally)
+├── frontend/        # cell-cultivation game UI (M6, live at https://snacc-nu.vercel.app)
 ├── oracle-tee/      # NEAR AI Cloud TEE client + redaction (M3, npm test)
 ├── scripts/         # economic simulations, gladi runner/KPI, verify:thesis, demo (M7)
 ├── docs/            # architecture/security/api-schemas/glossary/quickstart
@@ -80,7 +80,7 @@ After deploy: `init` → gladi per runbook → `migrate()` on upgrade when the s
 
 ## 7. Judge walkthrough — 30 seconds in the browser
 
-The frontend is **not publicly deployed** — run it locally first:
+Open **https://snacc-nu.vercel.app** (Vercel, built from `frontend` `main`), or run it locally:
 
 ```bash
 git clone https://github.com/Snacc-near/frontend.git frontend && cd frontend
