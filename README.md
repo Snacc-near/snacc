@@ -12,7 +12,7 @@ One `Homunculus Strain` (`NEP-171`/`NEP-177`) has a `$SNACC` stomach + a `NEP-24
 | `oracle-tee` | `M3` | Dual-Layer Redaction + the `z-ai/glm-5.3-flash` client + the ed25519 verifier |
 | `sdk` | `M4` | `lab-sdk`: Function Call Keys (0-popup) + `SnaccClient` |
 | `backend` | `M5` | The `NEP-297` indexer + the `/api/crucible/*` API |
-| `frontend` | `M6` | `biolab-ui`: the 3-Column Console + 30s Judge Walkthrough |
+| `frontend` | `M6` | the cell-cultivation game: isometric Colony Plate arena + Cell Lab bio-reactor (run locally, not publicly deployed yet) |
 | `scripts` | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, economic simulations |
 
 ## Quick start (judges: Node.js 22+, no keys, no `npm install`)

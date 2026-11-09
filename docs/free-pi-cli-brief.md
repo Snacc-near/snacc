@@ -78,7 +78,7 @@ done
 | `oracle-tee` | M3 | Dual-Layer Redaction + the `z-ai/glm-5.3-flash` client + the ed25519 verifier | stub |
 | `sdk` | M4 | `lab-sdk`: Function Call Keys + `SnaccClient` | stub |
 | `backend` | M5 | The `NEP-297` indexer + the `/api/crucible/*` API | stub |
-| `frontend` | M6 | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough | stub |
+| `frontend` | M6 | the cell-cultivation game UI: isometric Colony Plate arena + Cell Lab bio-reactor, keycap HUD | built (run locally) |
 | `scripts` | M7 | `verify:thesis`, `demo:replay`, `gladi:retry`, economic simulations | active |
 
 **Toolchain & dependencies (locked, do not change without a reason):**

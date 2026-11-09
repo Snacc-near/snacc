@@ -1,6 +1,6 @@
 # Snacc — NEAR Hackathon submission notes
 
-Status: evidence pack written; frontend, demo video and the submission form are still pending (see `docs/evidence-pack.md` §7).
+Status: evidence pack written; the frontend is built and runs locally (not publicly deployed yet), the demo video and the submission form are still pending (see `docs/evidence-pack.md` §7).
 
 - **Project:** Snacc (`$SNACC`) — *NFTs that eat a memecoin. Feed your Snacc or it gets snacked.*
 - **Tracks:** `memecoins` + `nfts`. Other tracks are listed in the evidence pack only where a testnet tx hash or a view call backs them.
@@ -20,6 +20,20 @@ npm run verify:thesis   # falsifiers F-01..F-03 (F-01/F-02 read public RPCs, F-0
 ```
 
 Both commands read only files under `evidence/` and public RPCs.
+
+## Frontend (local only — not publicly deployed)
+
+The frontend is a cell-cultivation game (isometric Colony Plate arena + Cell
+Lab bio-reactor). Run it locally:
+
+```bash
+git clone https://github.com/Snacc-near/frontend.git frontend && cd frontend
+cp .env.example .env.local   # set VITE_API_BASE, or leave empty for simulated demo mode
+npm ci && npm run dev
+```
+
+See the `Snacc-near/frontend` README for screens, the organelle →
+contract-method map, and the 30-second walkthrough in `docs/quickstart.md` here.
 
 ## Honesty notes
 

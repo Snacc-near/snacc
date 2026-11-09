@@ -24,7 +24,7 @@ snacc/               # this umbrella (public)
 ├── contracts/       # Rust contract (single atomic unit: NEP-141 + NEP-171/177 + NEP-245 + mechanics)
 ├── sdk/             # lab-sdk (TS): NEP-297 event parser + SnaccClient (npm test)
 ├── backend/         # indexer + /api/crucible/* (M5)
-├── frontend/        # biolab-ui (M6)
+├── frontend/        # cell-cultivation game UI (M6, run locally)
 ├── oracle-tee/      # NEAR AI Cloud TEE client + redaction (M3, npm test)
 ├── scripts/         # economic simulations, gladi runner/KPI, verify:thesis, demo (M7)
 ├── docs/            # architecture/security/api-schemas/glossary/quickstart
@@ -77,3 +77,22 @@ cargo near build                       # snacc.wasm
 
 After deploy: `init` → gladi per runbook → `migrate()` on upgrade when the state layout changed
 (controlled reset; read the related pipeline notes).
+
+## 7. Judge walkthrough — 30 seconds in the browser
+
+The frontend is **not publicly deployed** — run it locally first:
+
+```bash
+git clone https://github.com/Snacc-near/frontend.git frontend && cd frontend
+cp .env.example .env.local   # set VITE_API_BASE, or leave empty for simulated demo mode
+npm ci && npm run dev
+```
+
+Then, in the browser:
+
+1. **Open** — the isometric Colony Plate arena loads in `demo · simulated` mode.
+2. **Tap a cell** — a microscope-iris transition zooms into the Cell Lab bio-reactor.
+3. **Produce ATP** — the ATP synthase turbine spins (3 ATP per rotor turn); the Krebs wheel and the electron-transport cable car run the rest of the cycle.
+4. **Attest (TEE)** — the mechanism plays only; nothing is submitted from the UI.
+5. **Switch to live** — `live testnet` shows the 9 testnet strains, with values straight from the API and `—` wherever data is missing (never a fabricated number).
+6. **Read the honesty labels** — `demo · simulated` in demo, `live · /api data only` in live, and `preview only — on-chain transactions need a wallet` next to every action key in live mode.

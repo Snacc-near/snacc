@@ -11,7 +11,7 @@
 | [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | `M3` | The TEE client + the ed25519 verifier + deterministic local redaction (Layer 1, `ADR-05`); the `/v1/privacy/redact` cloud call is attempted with *graceful fallback* — that endpoint 404s for `glm-5.3-flash` (Spike S2.2), so Layer 2 never runs on this model | `TEE-101..104` merged, 14 tests |
 | [`sdk`](https://github.com/Snacc-near/sdk) | `M4` | `lab-sdk`: the NEP-297 event parser; `SnaccClient` + Function Call Keys to follow | `SDK-107..108` merged, 15 tests |
 | [`backend`](https://github.com/Snacc-near/backend) | `M5` | The `NEP-297` indexer + the `/api/crucible/*` API | scaffold (`INT-101..108` in progress) |
-| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | `biolab-ui`: 3-Column Console + 30s Judge Walkthrough | **not yet worked on** (FE is sequenced last, waiting for the owner's approval) |
+| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | the cell-cultivation game UI: isometric Colony Plate arena + Cell Lab bio-reactor (12 mechanism animations), keycap HUD, demo/live modes | built (run locally with `npm ci && npm run dev` in `frontend/`; not publicly deployed) |
 | [`scripts`](https://github.com/Snacc-near/scripts) | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, economic simulations | active |
 
 ## 2. The four mechanism layers
@@ -28,7 +28,7 @@
 ## 3. The main data flows
 
 ```
-Alkemis (E1) --Function Call Keys (0-popup)--> biolab-ui (M6)
+Alkemis (E1) --Function Call Keys (0-popup)--> frontend (M6)
     --call--> snacc-v001.near (M1: state D1-D8, event NEP-297 -> D9)
     --Stage 1 redaction--> oracle-tee (M3) --POST /v1/chat/completions--> NEAR AI Cloud TEE (E3)
     <--{chat_id, signature ed25519}--  E3
