@@ -7,7 +7,7 @@ that hurt.
 
 ## 1. What went well (short)
 
-- 288 contract tests (contracts PR #21) with 0 warnings (`cargo test -p snacc`, verified
+- 293 contract tests (contracts PR #22) with 0 warnings (`cargo test -p snacc`, verified
   2026-11-09 against contracts origin/main) plus a keyless thesis verifier (`npm run verify:thesis`,
   falsifiers F-01..F-03) and a zero-key offline demo replay.
 - Zero-key TEE evidence path: signed reasoning bundles re-verifiable with `env::ed25519_verify`
@@ -106,12 +106,13 @@ validator exists that we could run; this was a name/signature comparison, not be
 
 | Gap | Status (2026-11-09) | Consequence |
 |---|---|---|
-| **NEP-181 enumeration** (`nft_total_supply`, `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner`) | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public contract source** — **closed by contracts PR #21** (public source now exposes the same 67-function ABI; structural ABI parity, not byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B, build of new main 418,327 B) | the marketplace-listing block that applied while the gap was open no longer applies on parity grounds (Mintbase/HOT Craft browse views are present in the public source) |
+| **NEP-181 enumeration** (`nft_total_supply`, `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner`) | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public contract source** — **closed by contracts PR #21** (public source now exposes the same 67-function ABI; structural ABI parity — function list unchanged, not byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B; since contracts PR #22 the source is ahead on NEP-297 events only — `ft_mint` and string `amount`, in source not yet deployed) | the marketplace-listing block that applied while the gap was open no longer applies on parity grounds (Mintbase/HOT Craft browse views are present in the public source) |
 | **NEP-177 contract-level `nft_metadata`** | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public source** — **closed by contracts PR #21** on the same parity terms | the "NEP-177 compliant" claim for the public source, false while the gap was open, is now supported by the source |
 | **NEP-145 storage management** | was **partial** — no `storage_unregister` by design (deregistration via full `storage_withdraw`), `storage_balance_bounds` deployed-wasm-only — **closed by contracts PR #21**: `storage_balance_bounds` (contracts:snacc/src/lib.rs:2237) and `storage_unregister` (contracts:snacc/src/lib.rs:2250) are now in the public source | wallets/DEX calling those methods failed while the gap was open; both are present since PR #21 |
 
 Also recorded there (context, not findings-in-code): NEP-141/171/177/297 pass the method/shape
-check with notes (`ft_burn` is a non-standard extension; no NEP-178 approvals; NEP-245 is a data
+check with notes (`ft_burn` is a non-standard extension; `ft_mint` added in contracts PR #22 —
+in source, not yet deployed; no NEP-178 approvals; NEP-245 is a data
 model, not a public `mt_*` interface — the README must say so).
 
 **Lesson.** "Standards supported" is a per-NEP matrix with evidence, not a checkbox. Optional-by-spec
@@ -176,9 +177,12 @@ agents' completion reports too.
 - SEC-103 NEP report: written and published as `docs/nep-compliance.md`; NEP-145/177/181
   live-verified on the deployed wasm (KPI G-22). Until 2026-11-09 the NEP views were **not yet
   in the public contract source** (§6); contracts PR #21 added them, so the public source now
-  exposes the same 67-function ABI (structural ABI parity, not byte-identical wasm: deployed
-  code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B, build of new main
-  418,327 B). NEP-178 **not done** (optional).
+  exposes the same 67-function ABI (structural ABI parity — function list unchanged, not
+  byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt
+  406,495 B). Since contracts PR #22 the source is ahead on NEP-297 events only (`ft_mint`
+  added on the `incubate_strain` mint path; `ft_burn`/`ft_transfer` `amount` now a decimal
+  string, `ft_burn` with `memo: null`): in source (contracts PR #22), not yet deployed, and
+  live only after a testnet redeploy (see `docs/nep-compliance.md`). NEP-178 **not done** (optional).
 - Align `README.md` NEP-245 wording with the corrected claim (§6) — the README describes
   "a `NEP-245` inventory"; the public scope note ("no public `mt_*` surface") lives in
   `docs/nep-compliance.md` — keep both in sync going forward.

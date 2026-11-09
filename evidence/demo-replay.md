@@ -97,7 +97,7 @@ NEP-171 `nft_transfer` — the NFT (living cell + gut + organelles) changes owne
 
 ## 📜 NEP compliance
 
-NEP-177 `nft_metadata` (spec nft-1.0.0) · NEP-145 `storage_deposit(registration_only)` + bounds · NEP-181 enumeration `nft_tokens`/`nft_supply_for_owner` — the entry point for wallets & marketplaces. Verified on the deployed wasm. Until 2026-11-09 the view code was not yet in the public repo; contracts PR #21 added it, so the public source now exposes the same 67-function ABI (structural ABI parity, not byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B, build of new main 418,327 B).
+NEP-177 `nft_metadata` (spec nft-1.0.0) · NEP-145 `storage_deposit(registration_only)` + bounds · NEP-181 enumeration `nft_tokens`/`nft_supply_for_owner` — the entry point for wallets & marketplaces. Verified on the deployed wasm. Until 2026-11-09 the view code was not yet in the public repo; contracts PR #21 added it, so the public source now exposes the same 67-function ABI (structural ABI parity — function list unchanged, not byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B). Since contracts PR #22 the source is ahead on NEP-297 events only (`ft_mint` added on the `incubate_strain` mint path; `ft_burn`/`ft_transfer` `amount` now a decimal string, `ft_burn` with `memo: null`): the deployed contract still uses numeric amounts and emits no `ft_mint`, so those event changes are in source (contracts PR #22), not yet deployed, and go live only after a testnet redeploy. This replay covers deployed-wasm evidence only; it makes no `ft_mint` live claim.
 
 - `DneWt2NGzNeru3KBjPXVEnd1Mx5Ae92QuDcUAtL88MT2` — storage_deposit registration_only=true (NEP-145, 5 mN)
 
