@@ -9,7 +9,7 @@
 
 | Slot | Effect (code, the owner's decision) | Formula | Test |
 | --- | --- | --- | --- |
-| Mitochondria | ATP minted +10%/level | `atp = fee/10^15 × eff × (10000+1000×mito)/10000` (§13a) | `tc_organel_01` + `tc_f2_06` |
+| Mitochondria | ATP minted +10%/level | `atp = fee/10^15 × eff × (10000+1000×mito)/10000` (§13a) | `tc_organel_01` + `atp115_formula_and_mitochondria_bonus` (the L1/L2/L5 bonus) + `atp114_feed_mints_atp_and_event` |
 | Nucleus | Production output **+10%/level** — multiplies the result of `transmute_spores_to_enzyme` & `synthesize_elixir` | `minted = base × (10000 + 1000×nukleus)/10000` | `tc_organel_04` (8 spores: 8→12 @nuk5; elixirs 2→3 @nuk5) |
 | Lysosome | Effective BMR **−10%/level** — a longer lifespan | `BMR_eff = bmr_per_hour × (10000 − 1000×lisosom)/10000` (min 0; the level cap 5 → BMR_eff ≥ 50%) | `tc_organel_05` (70 h: lysosome 4 → eff 4300 vs 1500 without) |
 

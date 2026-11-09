@@ -19,12 +19,12 @@
 | `harvest_starving_strain` | anyone; the target must be Tier 3 (`I-10`) | ✅ |
 | `advance_sandbox_clock` | demo/test only | ✅ |
 | `advance_epoch` | anyone (a keeper, `E5`) — the epoch transition | ✅ |
-| `ft_burn` | **FINDING**: it currently does not check the caller — see SEC-101 for the tightening | ⚠️ |
+| `ft_burn` | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`; fixed per `SEC-101`, test `sec101_ft_burn_non_owner_rejected`) | ✅ |
 | `owner_withdraw_snacc` | the Strain owner (`ADR-29`, the nonce rises) | spec v3.0 |
 | `npc_quote_spores` / `npc_buy_spores` | view / the Strain owner (`ADR-30`) | spec v3.0 |
 | `register_attested_signer` | the contract owner (`ADR-33`) | spec v3.0 |
 
-> Honest note: the ⚠️ row is this document's finding (per `SEC-101`, `V-01`: every cash withdrawal/touch must have `predecessor == owner`). There is no admin treasury withdrawal function (`I-05`).
+> Honest note: the `ft_burn` row was previously this document's finding (per `SEC-101`, `V-01`: every cash withdrawal/touch must have `predecessor == owner`); the contract now enforces it (see `fn ft_burn` in `contracts:snacc/src/lib.rs` — it asserts the caller against the Strain owner, error `ERR_NOT_OWNED_BY_CALLEE`). There is no admin treasury withdrawal function (`I-05`).
 
 ## 2. Invariants (`I-01..I-10`, `I-14..I-16`)
 
@@ -51,10 +51,11 @@ From the Spec Antarmuka Kontrak:
   cell activity (catalyst fees + ATP feeds). This is a documented design decision — **not
   a bug**: the NPC is just a liquidity provider with isolated cash (`I-15`), not a
   thermostat participant. If the NPC is later designed to move the temperature too, update the spec + the indexer
-  (`tc_npc_06` deliberately fails as a reminder).
+  and add the regression test (no such test exists yet — the earlier "`tc_npc_06` deliberately fails" note
+  referenced a test that was never written).
 - **The DK-030 fee floor (pipeline #17)**: the `effective_fee` of a feed is floored at **1 yocto** —
   the burst × dormancy × rescue combination never produces a free feed
-  (`tc_dk030_feed_tidak_pernah_gratis`).
+  (`tc_dk030_feeding_is_never_free`).
 
 ## 3. The `ERR_*` error codes (verbatim from the contract code)
 
