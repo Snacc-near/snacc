@@ -105,7 +105,7 @@ Nothing below is claimed as live.
 | Reproducible build | `evidence/snacc.wasm` matches the deployed code_hash (C1) but was built with `cargo near build non-reproducible-wasm`. A Docker reproducible build (and a SourceScan verification) was not run. The public source (contracts PR #21, then PR #22) is not byte-identical to the deployed 406,495 B wasm — parity is structural ABI parity only (same 67-function list). Since contracts PR #22 the source is ahead on NEP-297 events only (`ft_mint` added; `ft_burn`/`ft_transfer` `amount` now a decimal string), in source and not yet deployed (see C1). |
 | TEE **attestation** (is the signing key really inside an enclave?) | Not independently verified here. P1 shows a valid signature, not enclave attestation. |
 | NEP-245 public `mt_*` interface | Absent by design today; no compliance claim. NEP-297 event structure is checked by our own tests only (no external parser). |
-| Frontend, demo video, submission form | **Not done — deliberately sequenced last.** No FE screenshot or video exists yet. |
+| Frontend, demo video, submission form | The frontend exists in the `frontend` repo and runs locally (see the `Snacc-near/frontend` README and `docs/img/` there). Demo video and submission form still pending. |
 | Mainnet | Nothing deployed. All evidence is testnet. |
 
 Related: `evidence/gladi-kpi.md` (auto-check of the manifest), `evidence/gladi-manifest.json` (all 51 txs), `evidence/snacc.wasm` (the deployed build).

@@ -51,7 +51,7 @@
 1. **Read-only checks (no transaction):** view `ft_metadata`, `ft_total_supply`, `storage_balance_of` with the ready-made RPC snippets in `docs/evidence-pack.md`.
 2. **Registration + transfer smoke (2 testnet transactions):** account A registers through `storage_deposit`, then A sends a small `ft_transfer` to B. The same flow was already exercised by KPI G-02 (transaction `4t5LdFJt…` recorded in `docs/evidence-pack.md` M1); a repeat would use whatever test accounts are chosen at run time.
 3. **Pool-presence probe:** `npm run dex-check` (script `scripts/dex-check.mjs`) queries DEX pools **by contract address**. Honest expected output for a testnet contract: **not present in mainnet pools** — that is information, not a failure.
-4. **Internal quote simulation for UI widgets:** `npc_quote_spores` (`P_BASE × S_target / max(S_after,1)`, `contracts:snacc/src/lib.rs`) can feed a mock price input in testnet widgets (`RES-107`/`RES-108`, frontend still pending).
+4. **Internal quote simulation for UI widgets:** `npc_quote_spores` (`P_BASE × S_target / max(S_after,1)`, `contracts:snacc/src/lib.rs`) can feed a mock price input in testnet widgets (`RES-107`/`RES-108`, frontend built — run locally).
 5. **Meme.Cooking mock: cannot be confirmed** — no public testnet board was found (§1, unverified). Do not create accounts or send transactions there to "test" it; confirm with the platform first.
 
 ## 5. Explicit gates
