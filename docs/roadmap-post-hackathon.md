@@ -23,8 +23,8 @@ Ordered by risk to the *claims we already make*:
 - **CI hardening:** keep `cargo test` (257 tests, 0 warnings on contracts origin/main as of
   2026-11-09) + wasm `cargo check` + `npm run verify:thesis` as merge gates; add the NEP compliance
   check to CI once SEC-103 tooling is chosen.
-- **Indexer decision** (`docs/indexer-decision.md`) — poller v2 is already live and recommended
-  (backend `backend:src/poller.ts`); the remaining decision is the long-term indexer engine.
+- **Indexer decision** (`docs/indexer-decision.md`) — the poller v2 spike (`backend:src/poller.ts`)
+  is live and recommended; the remaining decision is the long-term indexer engine.
 - **SocialDB leaderboard spike**   — one testnet `set()` round-trip (the socialdb-leaderboard doc is still a planned doc;
   not yet on the public repo).
 - **Gladi evidence refresh** — rerun `verify:thesis` + demo replay after every state-affecting merge;
