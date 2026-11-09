@@ -26,6 +26,20 @@ npm run verify:thesis    # falsifiers F-01..F-03
 
 Contract: clone the `contracts` repo, then `cargo test`. Evidence per claim: [`docs/evidence-pack.md`](docs/evidence-pack.md) · submission summary: [`HACKATHON.md`](HACKATHON.md).
 
+## Live evidence (testnet `snacc-v001.testnet`)
+
+Point-in-time transactions from the committed gladi run — full hashes copied from [`evidence/gladi-manifest.json`](evidence/gladi-manifest.json) / [`docs/evidence-pack.md`](docs/evidence-pack.md), auto-checked in [`evidence/gladi-kpi.md`](evidence/gladi-kpi.md) (22 KPI rows). `$SNACC` testnet has no monetary value; no hash means no live claim.
+
+| What | Transaction (NearBlocks testnet explorer) |
+| --- | --- |
+| Contract deploy + state migration | [6ky2mYRK…](https://testnet.nearblocks.io/txns/6ky2mYRKE15gv7FrThSsuuQBNfXpNCGPZT1iywybPfd) · [CYfbeyVw…](https://testnet.nearblocks.io/txns/CYfbeyVwWwvqGUBbt63W9wbfV3JTJM9seTbky3QgiPFf) |
+| G-07 hostile takeover (115% + nonce guard) | [FArXv6FT…](https://testnet.nearblocks.io/txns/FArXv6FTka21NjbCqo8gKaXXC6Gqzway7c7ppDgcbgFY) |
+| G-08 `adopt` (book value to the old owner) | [7uWckTNX…](https://testnet.nearblocks.io/txns/7uWckTNXSQx86f1Zwau6ehJXLZqCsjwkLBJocjsQNmRp) |
+| G-10 lysis + 10% bounty | [Ce5aRBZ7…](https://testnet.nearblocks.io/txns/Ce5aRBZ7ES45YUukTxL2kFTDdT2qpxrSsFAx4UzY5owW) |
+| G-11 dividend claim | [7J8X3ASJ…](https://testnet.nearblocks.io/txns/7J8X3ASJQFkUbUZFzWps5d5yjbybhgj5CY8Vat2TmSQY) |
+| TEE commit → apply (on-chain `env::ed25519_verify`) | [FnJmzrT4…](https://testnet.nearblocks.io/txns/FnJmzrT4Z5AqdWMnVhumBKxPEUg64Azg2EUzGGYNb2tT) → [6s7UFfjd…](https://testnet.nearblocks.io/txns/6s7UFfjd8XBPZ6b9FK4tzGhEo6kstAVeNMCpdwAT9FCN) |
+| Vault sub-account materialize | [G2zaGz4E…](https://testnet.nearblocks.io/txns/G2zaGz4E3gLqyofxZNqXENu4WrcYxUrqVeW8dCgpwJEN) |
+
 ## Source of design truth
 
 The `snacc-vault/` vault — start from [[Snacc Hub]]. Numbers follow the **Kamus Angka Resmi** ([[Snacc - Model Data]]). Backlog & execution order: [[Snacc - Backlog Master]] (±300 items).
