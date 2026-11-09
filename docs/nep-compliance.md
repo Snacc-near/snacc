@@ -1,0 +1,68 @@
+# Snacc — NEP Compliance Checklist (SEC-103)
+
+> Status of every NEP standard the product claims, checked against the public `contracts` source (org `Snacc-near`, default branch, reviewed 2026-11-09) plus its unit tests, and against on-chain evidence from the committed gladi run: [`evidence/gladi-manifest.json`](../evidence/gladi-manifest.json) and [`evidence/gladi-kpi.md`](../evidence/gladi-kpi.md). Line numbers are point-in-time as of that review. **Public source vs deployed wasm:** the deployed wasm currently exposes more than the public source can rebuild (stated per row below). `$SNACC` testnet has no monetary value; no hash means no live claim.
+
+**Implementation note:** the crate `near-contract-standards` is **not used** — snacc/Cargo.toml (public source) pins only `near-sdk = "=5.29.1"`; every NEP surface below is hand-rolled on top of near-sdk. Unit-test baseline at the reviewed revision: `cargo test` reports 233 passed, 0 failed (contracts repository).
+
+## NEP-141 — Fungible Token Standard
+
+| Requirement | Public source | Unit tests (contracts) | Live evidence | Honest gap |
+| --- | --- | --- | --- | --- |
+| `ft_transfer` (exactly 1 yoctoNEAR, registered receiver) | `snacc/src/lib.rs:1917` | `n141_ft_transfer_success_and_event`, `n141_without_one_yocto_rejected`, `n141_transfer_to_unregistered_rejected`, `n141_insufficient_balance_rejected`, `n141_self_transfer_netral` | KPI G-02 PASS — [4t5LdFJt…](https://testnet.nearblocks.io/txns/4t5LdFJtHeU69XaAHYS42PvLT1RVWJbZcnpD37YPtUEE) (receiver registered first by [2uczuNT8…](https://testnet.nearblocks.io/txns/2uczuNT8CDQf4FRHtsGfnA7nPdJmpW28UDk8ePaww3oJ)) | — |
+| `ft_transfer_call` (+ the private refund callback `on_transfer_call`) | `snacc/src/lib.rs:1964` | `n141_transfer_call_full_refund_on_failure`, `n141_transfer_call_refund_unused` | — | not exercised in the gladi run; unit-tested only |
+| `ft_balance_of` | `snacc/src/lib.rs:1890` | `n141_get_total_wealth`, `n141_ft_transfer_success_and_event` | view queried in docs/evidence-pack.md (M1) | **N141-102:** returns `account_balances` ONLY (recorded decision at snacc/src/lib.rs:1888); strain-held balances are reported by `get_total_wealth` instead |
+| `ft_total_supply` | `snacc/src/lib.rs:1895` | `n141_ft_total_supply_konsisten_i01` | KPI G-20 PASS (`ft_total_supply` == macro supply) | — |
+| `ft_metadata` (`ft-1.0.0`, `Snacc`, `$SNACC`, 24 decimals, inline SVG icon) | `snacc/src/lib.rs:2017` | `n141_ft_metadata_correct` | KPI G-02 PASS (symbol=`$SNACC`, decimals=24) | — |
+| `ft_burn` (owner-gated — `SEC-101`) | `snacc/src/lib.rs:669` | `sec101_ft_burn_non_owner_rejected`, `vc005_ft_burn_burns_strain_balance`, `vc005_ft_burn_insufficient_balance_rejected` | KPI G-17 PASS — [HPe6gyyeN…](https://testnet.nearblocks.io/txns/HPe6gyyeN2vZKVNWVi9XuSgtuTxaDUHvP5wJrEq88UMV) (burn counter rises, supply consistent) | — |
+| NEP-297 events for `ft_*` under standard `nep141`: `ft_transfer`, `ft_burn` | `snacc/src/events.rs:29` (`emit_standard_event`) + call sites at snacc/src/lib.rs:1937 and snacc/src/lib.rs:705 | `n141_ft_transfer_success_and_event` (asserts `standard:"nep141"` and `event:"ft_transfer"` in the logs) | G-02 receipt carried the `nep141` `ft_transfer` event (docs/evidence-pack.md M1) | **`ft_mint` event is absent** (backlog N141-105): supply birth is emitted as `strain_created` under the `snacc` standard instead |
+
+## NEP-145 — Storage Management Standard
+
+| Requirement | Public source | Unit tests (contracts) | Live evidence | Honest gap |
+| --- | --- | --- | --- | --- |
+| `storage_deposit` (5 milliNEAR first-registration minimum) | `snacc/src/lib.rs:2035` | `n141_storage_full_cycle`, `n141_storage_deposit_below_minimum_rejected` | KPI G-22 PASS — registration tx [2uczuNT8…](https://testnet.nearblocks.io/txns/2uczuNT8CDQf4FRHtsGfnA7nPdJmpW28UDk8ePaww3oJ) (`registration_only:true`) | — |
+| `storage_withdraw` (full withdrawal deregisters an account that holds no `$SNACC`; the 5 milliNEAR minimum stays locked otherwise) | `snacc/src/lib.rs:2061` | `n141_storage_full_cycle` | — | unit-tested only |
+| `storage_balance_of` | `snacc/src/lib.rs:2104` | `n141_storage_full_cycle` | KPI G-22 PASS (`storage_balance_of` → registered, tx [DneWt2NG…](https://testnet.nearblocks.io/txns/DneWt2NGzNeru3KBjPXVEnd1Mx5Ae92QuDcUAtL88MT2)) | — |
+| `storage_balance_bounds` | — | — | view works on the deployed wasm (docs/evidence-pack.md N4 returned `min` = 5 milliNEAR) | **not present in the public source** — deployed-wasm-only, same public-source deficit as the NEP-177/181 views |
+| `storage_unregister` | — | `n141_storage_full_cycle` covers deregistration via a full `storage_withdraw(None)` | — | no dedicated method (recorded MVP design); deregistration happens through full withdrawal |
+
+## NEP-171 — Non-Fungible Token Standard (core)
+
+| Requirement | Public source | Unit tests (contracts) | Live evidence | Honest gap |
+| --- | --- | --- | --- | --- |
+| `nft_token` (living SVG with role/generation, red `#ff2255` when liquidated) | `snacc/src/lib.rs:1827` | `vc009_nft_token_media_deterministic`, `vc009_nft_token_missing_rejected`, `vc009_nft_token_after_liquidation`, plus svg.rs `vc009_svg_deterministic_and_size_bound` (≤ 1734 bytes) and `vc009_svg_delapan_indikator` | KPI G-15 PASS (svg 482 B) and G-16 PASS (indicators) | — |
+| `ft`-style `nft_transfer` (1 yoctoNEAR, approval slot, `pending_callbacks` lock — `SEC-111`) | `snacc/src/lib.rs:3141` | `lc16_nft_transfer_success`, `lc16_nft_transfer_without_yocto_rejected`, `lc16_nft_transfer_not_owner_rejected`, `lc16_nft_transfer_dead_cell_rejected`, `lc16_nft_transfer_missing_token_rejected` | KPI G-15 PASS — [88fJz3kd…](https://testnet.nearblocks.io/txns/88fJz3kdyzr1ZuHHxeNEVBEVNLNRBiFTRunVHnaQdsR5) (transplant) | — |
+| `nft_transfer_call` + resolver | `snacc/src/lib.rs:3206`, resolver `nft_resolve_transfer` at snacc/src/lib.rs:3251 | `lc16_transfer_call_accepted`, `lc16_transfer_call_failure_returns` | — | unit-tested only; not exercised in the gladi run |
+
+## NEP-177 — NFT Metadata Standard
+
+| Requirement | Public source | Unit tests (contracts) | Live evidence | Honest gap |
+| --- | --- | --- | --- | --- |
+| `nft_metadata` (`spec: nft-1.0.0`) | — | — | KPI G-22 PASS (`nft_metadata.spec=nft-1.0.0`, tx [DneWt2NG…](https://testnet.nearblocks.io/txns/DneWt2NGzNeru3KBjPXVEnd1Mx5Ae92QuDcUAtL88MT2)) | **view code is not in the public source yet** — verified on the deployed wasm only; cannot be rebuilt from public source (scope note recorded in evidence/gladi-kpi.md, G-22) |
+
+## NEP-181 — NFT Enumeration Standard
+
+| Requirement | Public source | Unit tests (contracts) | Live evidence | Honest gap |
+| --- | --- | --- | --- | --- |
+| `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner` | — | — | KPI G-22 PASS (`nft_tokens=5`, `nft_supply_for_owner=8`, same tx as NEP-177 row) | **views are not in the public source yet** — deployed-wasm-only (same G-22 scope note) |
+
+## NEP-245 — Multi Token Standard
+
+| Requirement | Public source | Unit tests (contracts) | Live evidence | Honest gap |
+| --- | --- | --- | --- | --- |
+| The 9 molecules (`mt:*` token IDs) exist as the per-strain inventory (state `D3`); `mt_burn` → `mt_mint` × `efficiency_bps` across the 3-stage chain, with molecule events under the `snacc` standard | inventory + burn/mint accounting throughout snacc/src/lib.rs (per-strain inventory maps) | `vc004_extract_mint_by_type`, `vc004_transmute_formula_efficiency`, `vc004_transmute_recipes_redactase_synthase`, `vc004_insufficient_spore_stock_rejected`, `vc004_transmute_recipe_not_met` | KPI G-04 PASS (`extracted` → `transmuted` → `synthesized` receipts in evidence/gladi-kpi.md) | **no public `mt_*` methods** (`mt_balance_of` / `mt_transfer` are intentionally not exposed): recorded design — molecules are contract-internal fuel inside the single atomic contract, not standalone transferable tokens |
+
+## NEP-297 — Event JSON Standard
+
+| Requirement | Public source | Unit tests (contracts) | Live evidence | Honest gap |
+| --- | --- | --- | --- | --- |
+| `EVENT_JSON:` envelope with `standard` + `event` + `data` | `snacc/src/events.rs:14` (`STANDARD = "snacc"`), snacc/src/events.rs:22 (`emit_event_json`), snacc/src/events.rs:29 (`emit_standard_event`, also used for external standards such as `nep141`) | `n141_ft_transfer_success_and_event` (external standard), plus log assertions across suites (`en102_harvest_ignites_burst`, `en106_zone_changed_event`, dividend and M&A suites); SDK parser suite in the sdk repository (test/events.test.ts) | Every receipt-backed KPI row in evidence/gladi-kpi.md (G-05 commit/apply, G-06 splice, G-08 adopt, G-09 divide, G-10 lysis, G-11 dividend, G-19 feast) | `ft_mint` not emitted (see the NEP-141 row) |
+
+## Summary (honest)
+
+- **In public source with tests:** NEP-141 core (6 methods + `ft_transfer`/`ft_burn` events), NEP-145 (`storage_deposit` / `storage_withdraw` / `storage_balance_of`), NEP-171 (`nft_token`, `nft_transfer`, `nft_transfer_call`), NEP-297 envelope, NEP-245 internal accounting.
+- **Live-verified on the deployed wasm but not rebuildable from public source:** NEP-177 `nft_metadata`, NEP-181 enumeration views, NEP-145 `storage_balance_bounds` (KPI G-22 PASS; scope note in evidence/gladi-kpi.md).
+- **Known gaps:** `ft_mint` event absent (N141-105); `ft_balance_of` counts account balances only (N141-102); no public `mt_*` surface (recorded design); `near-contract-standards` not used — all surfaces hand-rolled.
+- `ft_transfer_call` and `nft_transfer_call` are unit-tested but were not exercised in the gladi run.
+
+Back to [README](../README.md) · evidence index: [docs/evidence-pack.md](evidence-pack.md) · access matrix: [docs/security.md](security.md)
