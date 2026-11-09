@@ -21,7 +21,7 @@ Ordered by risk to the *claims we already make*:
 
 ## Phase 1 — Right after the demo (weeks 1–2)
 
-- **CI hardening:** keep `cargo test` (288 tests on contracts origin/main as of 2026-11-09)
+- **CI hardening:** keep `cargo test` (293 tests on contracts origin/main as of 2026-11-09)
   + wasm `cargo check` + `npm run verify:thesis` as merge gates; add the NEP compliance
   check to CI once SEC-103 tooling is chosen.
 - **Indexer decision** (`docs/indexer-decision.md`) — the poller v2 spike (`backend:src/poller.ts`)

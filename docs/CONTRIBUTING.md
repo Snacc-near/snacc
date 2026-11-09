@@ -33,7 +33,7 @@ purpose; the vault documents are the source of truth for design.
 
 ```bash
 cd contracts
-cargo test -p snacc          # must pass with 0 warnings (288 tests on contracts origin/main, 2026-11-09)
+cargo test -p snacc          # must pass with 0 warnings (293 tests on contracts origin/main, 2026-11-09)
 cargo check -p snacc --target wasm32-unknown-unknown   # must be clean
 cargo near build             # when producing a wasm artifact
 ```

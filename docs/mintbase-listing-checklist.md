@@ -22,9 +22,11 @@ step below requires **explicit owner approval** (project rule) and is therefore 
       `nft_tokens_for_owner`) — per the public `docs/nep-compliance.md` (SEC-103), these views are
       **live-verified on the deployed wasm (KPI G-22 PASS)**. Until 2026-11-09 they were not yet
       present in the public contract source; contracts PR #21 added them, so the public source now
-      exposes the same 67-function ABI as the deployed contract (structural ABI parity, not
-      byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt
-      406,495 B, build of new main 418,327 B) — marketplaces rely on them for collection browsing.
+      exposes the same 67-function ABI as the deployed contract (structural ABI parity —
+      function list unchanged, not byte-identical wasm: deployed code_hash
+      3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B; since contracts PR #22 the
+      source is ahead on NEP-297 events only — `ft_mint` and string `amount`, in source not
+      yet deployed) — marketplaces rely on them for collection browsing.
 - [ ] **NEP-177 `nft_metadata`** (contract-level metadata) — same status as above: verified live
       (KPI G-22 PASS); until 2026-11-09 it was not yet in the public source, now added in
       contracts PR #21 on the same parity terms (marketplace pages commonly fetch it).
