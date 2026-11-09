@@ -106,13 +106,14 @@ validator exists that we could run; this was a name/signature comparison, not be
 
 | Gap | Status (2026-11-09) | Consequence |
 |---|---|---|
-| **NEP-181 enumeration** (`nft_total_supply`, `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner`) | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public contract source** — **closed by contracts PR #21** (public source now exposes the same 67-function ABI; structural ABI parity — function list unchanged, not byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B; since contracts PR #22 the source is ahead on NEP-297 events only — `ft_mint` and string `amount`, in source not yet deployed) | the marketplace-listing block that applied while the gap was open no longer applies on parity grounds (Mintbase/HOT Craft browse views are present in the public source) |
+| **NEP-181 enumeration** (`nft_total_supply`, `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner`) | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public contract source** — **closed by contracts PR #21** (public source now exposes the same 67-function ABI; structural ABI parity — function list unchanged, not byte-identical wasm: current deployed code_hash `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr`, 517,185 B, GLADI-8 redeploy 2026-11-09, deploy `BF3MfUnpCtcqqXfBWnusDixvHHENBX2FrUHVhbEZQM7V` + migrate `G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25`; the earlier deployment, code_hash `3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt`, 406,495 B, is history). Contracts PR #22 items (`ft_mint`, string `amount`) went live with the same GLADI-8 redeploy (tx `5JCAmSL7`, `ERBRL4rT`, `FQ6R9fmK`), so source and deployment are in parity on events too (functional, not byte-identical) | the marketplace-listing block that applied while the gap was open no longer applies on parity grounds (Mintbase/HOT Craft browse views are present in the public source) |
 | **NEP-177 contract-level `nft_metadata`** | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public source** — **closed by contracts PR #21** on the same parity terms | the "NEP-177 compliant" claim for the public source, false while the gap was open, is now supported by the source |
 | **NEP-145 storage management** | was **partial** — no `storage_unregister` by design (deregistration via full `storage_withdraw`), `storage_balance_bounds` deployed-wasm-only — **closed by contracts PR #21**: `storage_balance_bounds` (contracts:snacc/src/lib.rs:2237) and `storage_unregister` (contracts:snacc/src/lib.rs:2250) are now in the public source | wallets/DEX calling those methods failed while the gap was open; both are present since PR #21 |
 
 Also recorded there (context, not findings-in-code): NEP-141/171/177/297 pass the method/shape
-check with notes (`ft_burn` is a non-standard extension; `ft_mint` added in contracts PR #22 —
-in source, not yet deployed; no NEP-178 approvals; NEP-245 is a data
+check with notes (`ft_burn` is a non-standard extension; `ft_mint` added in contracts PR #22 and
+live on chain since the GLADI-8 redeploy 2026-11-09 — tx `5JCAmSL7pLTV8mShrNuEtG5WLPkCqKkYCZBf5WGtQ2wY`;
+no NEP-178 approvals; NEP-245 is a data
 model, not a public `mt_*` interface — the README must say so).
 
 **Lesson.** "Standards supported" is a per-NEP matrix with evidence, not a checkbox. Optional-by-spec
@@ -178,11 +179,15 @@ agents' completion reports too.
   live-verified on the deployed wasm (KPI G-22). Until 2026-11-09 the NEP views were **not yet
   in the public contract source** (§6); contracts PR #21 added them, so the public source now
   exposes the same 67-function ABI (structural ABI parity — function list unchanged, not
-  byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt
-  406,495 B). Since contracts PR #22 the source is ahead on NEP-297 events only (`ft_mint`
-  added on the `incubate_strain` mint path; `ft_burn`/`ft_transfer` `amount` now a decimal
-  string, `ft_burn` with `memo: null`): in source (contracts PR #22), not yet deployed, and
-  live only after a testnet redeploy (see `docs/nep-compliance.md`). NEP-178 **not done** (optional).
+  byte-identical wasm). The GLADI-8 redeploy on 2026-11-09 brought contracts PR #22 live as
+  well: current deployed code_hash `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr` (517,185 B;
+  deploy `BF3MfUnpCtcqqXfBWnusDixvHHENBX2FrUHVhbEZQM7V`, migrate
+  `G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25`) emits `ft_mint` (tx
+  `5JCAmSL7pLTV8mShrNuEtG5WLPkCqKkYCZBf5WGtQ2wY`) and string `amount` on `ft_burn` (tx
+  `ERBRL4rTS6JHEKVsSumLYtru1hXsSYWdkGJH8d1krJaL`) / `ft_transfer` (tx
+  `FQ6R9fmKWntSwQPjKchbd3EY8tnoZ3pvcNvSwZAtvXa8`). The earlier deployment (code_hash
+  `3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt`, 406,495 B, built 2026-11-08) ran numeric
+  amounts with no `ft_mint` and is history (see `docs/nep-compliance.md`). NEP-178 **not done** (optional).
 - Align `README.md` NEP-245 wording with the corrected claim (§6) — the README describes
   "a `NEP-245` inventory"; the public scope note ("no public `mt_*` surface") lives in
   `docs/nep-compliance.md` — keep both in sync going forward.
