@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-11-08T10:48:30.870Z",
+  "contract": "snacc-v001.testnet",
+  "rpc": "https://rpc.testnet.near.org",
+  "sim": {
+    "final_population": 95,
+    "final_supply": 841410,
+    "total_burned": 158590,
+    "total_rebate": 44401753,
+    "fever_pct": 5.86,
+    "hypo_pct": 92.96,
+    "death_spiral": false
+  },
+  "live": {
+    "crucible_temp": 0,
+    "ft_total_supply": "1000000000000000000000000",
+    "solvent": true,
+    "nft_metadata_spec": "nft-1.0.0",
+    "storage_min": "5000000000000000000000"
+  }
+}
