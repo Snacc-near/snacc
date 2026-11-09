@@ -23,6 +23,8 @@
 | 3 | **Secret genome (TEE)** | The mutation formula is evaluated by `z-ai/glm-5.3-flash` inside the NEAR AI Cloud enclave; the contract verifies it itself: `env::sha256` reconstruction + `env::ed25519_verify` + `chat_id` anti-replay + a ±1500 bps guardrail (`ADR-21`, `I-03`, `I-06`, `I-07`, `I-16`) | `M1`, `M3` |
 | 4 | **Macro central bank** | The `CrucibleTemp` thermostat: Fever `>1400 mK` → burns 350 bps of the fee; Hypothermia `<600 mK` → a 200 bps subsidy from the treasury, capped at 500 bps/epoch (`I-04`); the Industrial Dividend Pool takes 50% of the non-burned fee | `M1`, `M5` |
 
+**Spec ↔ code mapping (rescue vs adoption — backlog `EN-123`):** the spec's `snack(target_id)` — finishing a dying cell — has **no method named `snack`** in the code; the F6 lysis path is the method `harvest_starving_strain` (snacc/src/lib.rs:1736), callable by anyone once effective vitality is 0 (10% bounty to the caller, 90% to the treasury). The spec's `adopt(target_id)` is the method named exactly `adopt` (snacc/src/lib.rs:2761) — **not** `adopt_strain` — and takes over a Distressed cell (vitality 1..=2000) at book value, preventing lysis. The two windows are disjoint by design, so at every state exactly one path applies (adoption in 1..=2000, harvest at 0); the race behavior is pinned by the regression tests `sec118_race_adopt_vs_harvest_windows_disjoint` and `sec118_race_adopt_vs_adopt_stale_nonce_single_winner`. See [nep-compliance.md](nep-compliance.md) for the standards checklist.
+
 ## 3. The main data flows
 
 ```
