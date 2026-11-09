@@ -38,12 +38,17 @@ Every subtraction is **preceded by an assert** (fail-fast, never underflows):
 
 ## SEC-113 — The complete access matrix
 
-Document: `docs/security.md` §1 (≈45 methods: owner / anyone / permissionless-harvest /
-keeper-advance / contract-owner register_signer + views). The internal/#[private] methods deliberately
-left out of the matrix: `on_subaccount_created`, `on_transfer_call`, `nft_resolve_transfer`
-(only the contract itself can call them — `#[private]`), `migrate` (init-like), `new`, `protocol_version`.
-The SEC-113 completeness: a "Security note" column was added per method (the pipeline #7 refund,
+Document: `docs/security.md` §1 (every `pub fn` in `contracts:snacc/src/lib.rs` at contracts
+main @ cabe745: owner / anyone / permissionless-harvest / keeper-advance / contract-owner /
+private callback + views, with `#[payable]` / `assert_one_yocto` / deposit gates per row).
+The `#[private]` methods are now listed in the matrix (only the contract itself can call
+`on_subaccount_created`, `on_transfer_call`, `nft_resolve_transfer`, `migrate`), together with
+`new`, `protocol_version` and all views. The SEC-113 completeness: a "Security note" column was added per method (the pipeline #7 refund,
 EN-124, the `SEC-110` minimum deposit) — already in the current document version.
+Re-verified 2026-11-09 against contracts origin/main (contracts PR #21): the NEP-177
+`nft_metadata`, NEP-181 enumeration views and NEP-145 `storage_balance_bounds` /
+`storage_unregister` rows were added, the non-existent `owner_withdraw_snacc` row was removed,
+and `hostile_takeover_splice` now records the seller credit via `set_account_balance`.
 
 ## SEC-114/115 — Commitment double-spend & TEE signature reuse
 
