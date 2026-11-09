@@ -12,7 +12,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Ambil repo scripts pada commit yang ditunjuk gitlink
+      - name: Fetch the scripts repo at the commit the gitlink points to
         run: |
           SHA=$(git ls-tree HEAD scripts | awk '{print $3}')
           rm -rf scripts

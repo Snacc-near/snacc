@@ -1,10 +1,10 @@
 # ai-memory scope pin — Snacc (project 2).
-# Semua sesi di subtree ini tercatat di workspace/project "snacc".
+# All sessions under this subtree are recorded in workspace/project "snacc".
 workspace = "snacc"
 project = "snacc"
 
 [capture]
-# Jangan pernah capture material secret (aturan project: .env & .secrets/).
+# Never capture secret material (project rule: .env & .secrets/).
 ignore_paths = [
   ".secrets/**",
   "**/.secrets/**",
@@ -15,9 +15,9 @@ ignore_paths = [
 ]
 
 [briefing]
-# Brief otomatis tiap sesi: berisi "Snacc — Peta Vault Ringkas" (peta lengkap
-# 84 dokumen vault) + judul halaman terbaru. Budget ~2.400 token (pas di batas
-# inline context Claude Code 9.800 char, jadi tidak pernah dibuang ke file).
+# Automatic briefing every session: contains "Snacc — Peta Vault Ringkas" (the full map
+# of the 84 vault documents) + the latest page titles. Budget ~2,400 tokens (fits the
+# inline Claude Code context of 9,800 chars, so it is never spilled to a file).
 inject_on_session_start = "true"
 max_chars = 9500
 

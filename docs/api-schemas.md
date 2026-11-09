@@ -1,8 +1,8 @@
-# Snacc — Skema API & JSON
+# Snacc — API & JSON Schemas
 
-> Skema view kontrak yang **sudah ada di kode** + endpoint `/api/crucible/*` rencana backend. Nama field disalin persis dari [`contracts:snacc/src/state.rs`](https://github.com/Snacc-near/contracts/blob/main/snacc/src/state.rs) dan `snacc-vault/04 Arsitektur/Snacc - Spec API Backend dan TEE.md`. Angka contoh bersifat ilustratif struktur, bukan data live.
+> The contract view schemas that **already exist in code** + the planned backend `/api/crucible/*` endpoints. Field names are copied verbatim from [`contracts:snacc/src/state.rs`](https://github.com/Snacc-near/contracts/blob/main/snacc/src/state.rs) and `snacc-vault/04 Arsitektur/Snacc - Spec API Backend dan TEE.md`. The example numbers illustrate the structure, they are not live data.
 
-## 1. View kontrak (JSON-RPC `query` → `call_function`)
+## 1. Contract views (JSON-RPC `query` → `call_function`)
 
 ### `get_strain(strain_id: u64)` → `StrainVesselView`
 
@@ -26,7 +26,7 @@
 }
 ```
 
-Catatan: `status` ∈ `Active | Distressed | Liquidated` (tangga solvensi `ADR-26`). `effective_vitality` dihitung lazy dari `now` (`ADR-22`). `atp_balance` bertipe `u128` (di RPC tampil sebagai string bila melebihi safe integer).
+Notes: `status` ∈ `Active | Distressed | Liquidated` (the `ADR-26` solvency ladder). `effective_vitality` is computed lazily from `now` (`ADR-22`). `atp_balance` is a `u128` (it shows as a string over RPC when it exceeds the safe integer range).
 
 ### `get_crucible_temp()` → `u64` (mK)
 
@@ -34,7 +34,7 @@ Catatan: `status` ∈ `Active | Distressed | Liquidated` (tangga solvensi `ADR-2
 1120
 ```
 
-Rumus: `floor(1000 × V_decayed / max(total_snacc_supply, 1))` dengan lazy decay `VOLUME_DECAY_PER_SEC = 50` per detik (`ADR-04/27`). Zona: `>1400` Fever · `<600` Hypothermia · `600..=1400` netral.
+Formula: `floor(1000 × V_decayed / max(total_snacc_supply, 1))` with a lazy decay of `VOLUME_DECAY_PER_SEC = 50` per second (`ADR-04/27`). Zones: `>1400` Fever · `<600` Hypothermia · `600..=1400` neutral.
 
 ### `get_macro_state()` → `MacroStateView`
 
@@ -66,31 +66,31 @@ Rumus: `floor(1000 × V_decayed / max(total_snacc_supply, 1))` dengan lazy decay
 }
 ```
 
-Catatan: field `u128` tampil sebagai string di JSON RPC. `params` = parameter termostat (`D7`, Kamus Angka Resmi).
+Notes: `u128` fields show as strings in the JSON RPC. `params` = the thermostat parameters (`D7`, the Kamus Angka Resmi).
 
-## 2. Endpoint backend `/api/crucible/*` (rencana `M5`)
+## 2. Backend endpoints `/api/crucible/*` (the `M5` plan)
 
-Sumber: Spec API Backend dan TEE §2. Status implementasi di repo `backend` mengikuti Papan Status.
+Source: Spec API Backend dan TEE §2. The implementation status in the `backend` repo follows the Status Board.
 
-| Method & Path | Respons utama | Status |
+| Method & Path | Main response | Status |
 | --- | --- | :-: |
 | `GET /api/crucible/macro` | `{ crucibleTemp, zone, totalSnaccSupply, totalSnaccBurned, ruleBoundTreasury, epochVolume, history[] }` | ✅ scaffold |
-| `GET /api/strains` | `{ strains: StrainVesselView[], starvingCount, splicedCount }` | ✅ scaffold (list dari event cache; indexer penuh = TODO) |
+| `GET /api/strains` | `{ strains: StrainVesselView[], starvingCount, splicedCount }` | ✅ scaffold (list from the event cache; a full indexer = TODO) |
 | `GET /api/strains/:id` | `StrainVesselView` | ✅ scaffold |
-| `GET /api/strains/:id/svg` | `image/svg+xml` (dari `nft_token`) | stub |
-| `GET /api/colony/:owner` | daftar Strain milik owner (`EN-08`) | stub |
-| `GET /api/dividends` | `industrial_dividend_pool` + riwayat klaim (`DK-033`) | stub |
-| `GET /api/zones` | riwayat transisi zona (`zone_changed`) | stub |
-| `GET /api/appetite` | meteran selera makan (`EN-05`) | stub |
-| `GET /api/events` | event `NEP-297` hasil poll log | ✅ scaffold |
-| `POST /api/tee/evaluate-genome` | `{ chatId, signedText, signatureHex, signingAddress, mutation, redactionReport }` | stub (di `oracle-tee`) |
+| `GET /api/strains/:id/svg` | `image/svg+xml` (from `nft_token`) | stub |
+| `GET /api/colony/:owner` | the owner's Strain list (`EN-08`) | stub |
+| `GET /api/dividends` | `industrial_dividend_pool` + the claim history (`DK-033`) | stub |
+| `GET /api/zones` | the zone transition history (`zone_changed`) | stub |
+| `GET /api/appetite` | the appetite meter (`EN-05`) | stub |
+| `GET /api/events` | `NEP-297` events from log polling | ✅ scaffold |
+| `POST /api/tee/evaluate-genome` | `{ chatId, signedText, signatureHex, signingAddress, mutation, redactionReport }` | stub (in `oracle-tee`) |
 | `GET /api/tee/attestation-report` | `{ model, signingAddress, gatewayAttestation, modelAttestations }` | stub |
 
-Endpoint stub merespons `501` dengan `{ "error": "not_implemented", "todo": "<ID backlog>" }` — tidak pernah mengarang data.
+Stub endpoints respond `501` with `{ "error": "not_implemented", "todo": "<backlog ID>" }` — they never invent data.
 
-## 3. Format event `NEP-297`
+## 3. The `NEP-297` event format
 
-Kontrak memancarkan log dengan JSON ber-field `kind` (parser di [`sdk:src/events.ts`](https://github.com/Snacc-near/sdk/blob/main/src/events.ts)):
+The contract emits logs with JSON carrying a `kind` field (parser in [`sdk:src/events.ts`](https://github.com/Snacc-near/sdk/blob/main/src/events.ts)):
 
 ```
 {"kind":"strain_created","strain_id":1,"owner_id":"...","role_mask":1,"initial_snacc_stake":40000,"spores_minted":1}
@@ -100,4 +100,4 @@ Kontrak memancarkan log dengan JSON ber-field `kind` (parser di [`sdk:src/events
 subaccount_materialized strain_id=1 sub_account_id=s-1.snacc-v001.near
 ```
 
-Pembungkus baku `EVENT_JSON:{standard, version, event, data:[...]}` didukung parser (VC-010).
+The standard `EVENT_JSON:{standard, version, event, data:[...]}` wrapper is supported by the parser (VC-010).

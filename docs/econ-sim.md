@@ -1,115 +1,115 @@
-# ECON-101..103 — Simulasi Makro Ekonomi Snacc (10.000 Epoch)
+# ECON-101..103 — The Snacc Macro-Economic Simulation (10,000 Epochs)
 
-Dibuat otomatis oleh `scripts/econ-sim.mjs` (seed 2071114, deterministik — hasil dapat direproduksi).
+Generated automatically by `scripts/econ-sim.mjs` (seed 2071114, deterministic — the results are reproducible).
 
-## Rumus yang dipakai (persis dari spec)
+## The formulas used (verbatim from the spec)
 
 - `CrucibleTemp = floor(1000 * V_decayed / max(M_supply, 1))` (ADR-04)
-- `V_decayed = max(0, volume_epoch - delta_detik * VOLUME_DECAY_PER_SEC)`, VOLUME_DECAY_PER_SEC = 50 (ADR-27)
-- Fever (`>1400 mK`): bakar `350 bps` dari katalis fee epoch → `ft_burn`, supply turun, burned naik (I-01)
-- Hypothermia (`<600 mK`): rebate `200 bps` dari treasury ke strain yang bertransaksi, cap total subsidi `500 bps`/epoch dari treasury awal epoch (I-04)
-- Vitalitas `0..10000`; awal inkubasi `8500`; BMR/jam Extractor 100, Fermenter 120, Synthesizer 150
-- Feed/transmutasi sukses: `vitality = min(10000, effective_vitality + 500)`, reset last_fed (F2)
-- Inkubasi: 80% modal kerja strain / 20% treasury (F1/D6)
-- Lisis (vitality 0): 10% bounty likuidator / 90% treasury (F6)
-- `mt_mint` enzim = `floor(spores_burned * efficiency_bps / 10000)`, efficiency_bps awal 10000 (F2)
+- `V_decayed = max(0, volume_epoch - delta_seconds * VOLUME_DECAY_PER_SEC)`, VOLUME_DECAY_PER_SEC = 50 (ADR-27)
+- Fever (`>1400 mK`): burns `350 bps` of the epoch's catalyst fee → `ft_burn`, the supply falls, burned rises (I-01)
+- Hypothermia (`<600 mK`): a `200 bps` rebate from the treasury to the transacting strain, with total subsidies capped at `500 bps`/epoch of the epoch's initial treasury (I-04)
+- Vitality `0..10000`; the incubation initial value `8500`; the BMR/hour is Extractor 100, Fermenter 120, Synthesizer 150
+- A successful feed/transmutation: `vitality = min(10000, effective_vitality + 500)`, last_fed reset (F2)
+- Incubation: 80% strain working capital / 20% treasury (F1/D6)
+- Lysis (vitality 0): a 10% liquidator bounty / 90% treasury (F6)
+- `mt_mint` of enzymes = `floor(spores_burned * efficiency_bps / 10000)`, the initial efficiency_bps 10000 (F2)
 
-## ASUMSI (tidak diatur spec — dinyatakan eksplisit)
+## ASSUMPTIONS (not governed by the spec — stated explicitly)
 
-1. 1 epoch = 3600 detik (BMR di spec per jam), 10.000 epoch ≈ 416 hari.
-2. Supply awal 1.000.000 $SNACC (basis spike S1.3: supply ≈ 1.000.000 sebelum burn).
-3. Populasi awal 200 strain; modal inkubasi 4000 $SNACC per strain (dibagi 80/20).
-4. Biaya katalis flat 100 $SNACC per transmutasi; masuk ke Rule-Bound Treasury.
-5. Volume epoch (2 model, karena spec tidak mendefinisikan magnitudo `V_epoch` vs supply — dianalisis keduanya):
-   - **fixed**: per transaksi = min(saldo strain, U(800, 3000)) $SNACC — siklus produksi berukuran tetap (stoikiometri F2);
-   - **velocity**: per transaksi = saldo strain × U(2, 6) — velocity of money.
-6. Aktivitas agen: peluang transaksi per epoch mengikuti gelombang sentimen sinusoida (periode 900 epoch, amplitudo 0.25) + noise; feed darurat (p=0.9) bila vitalitas < 3000.
-7. Strain insolven (vitality 0) dilikuidasi; pengganti diinkubasi dengan p=0.6; alkemis baru spontan p=0.03/epoch; onboarding eksternal 1000 $SNACC/epoch dari pemegang eksternal — **bukan cetak suplai**: inflow = min(1000, saldo pemegang eksternal), sehingga konservasi tertutup eksak (`result.conservation`). **Batas jujur:** eksternal awal hanya 800.000 $SNACC, jadi onboarding HABIS (~epoch 799 pada konfigurasi Opsi B) — bukan 10.000.000 sepanjang 10.000 epoch; sesudahnya populasi hanya berputar ulang. Lihat `docs/asumsi-7-fix.md`.
-8. Spora dibakar per transmutasi: 10 molekul; efficiency_bps konstan 10000 (tanpa mutasi TEE dalam sim ini).
-9. Skenario falsifikasi: semua agen berhenti feed/transaksi selama epoch 3000–3500, lalu aktivitas normal kembali.
+1. 1 epoch = 3600 seconds (the BMR in the spec is per hour), 10,000 epochs ≈ 416 days.
+2. An initial supply of 1,000,000 $SNACC (the S1.3 spike basis: the supply ≈ 1,000,000 before burns).
+3. An initial population of 200 strains; incubation capital of 4000 $SNACC per strain (split 80/20).
+4. A flat catalyst cost of 100 $SNACC per transmutation; it goes to the Rule-Bound Treasury.
+5. The epoch volume (2 models, because the spec does not define the magnitude of `V_epoch` vs supply — both are analyzed):
+   - **fixed**: per transaction = min(the strain balance, U(800, 3000)) $SNACC — a fixed-size production cycle (the F2 stoichiometry);
+   - **velocity**: per transaction = the strain balance × U(2, 6) — the velocity of money.
+6. Agent activity: the per-epoch transaction probability follows a sinusoidal sentiment wave (a 900-epoch period, a 0.25 amplitude) + noise; an emergency feed (p=0.9) when vitality < 3000.
+7. Insolvent strains (vitality 0) are liquidated; replacements are incubated with p=0.6; new alchemists appear spontaneously at p=0.03/epoch; external onboarding of 1000 $SNACC/epoch from external holders — **not minting supply**: the inflow = min(1000, the external holders' balance), so conservation closes exactly (`result.conservation`). **Honest limit:** the initial external holders hold only 800,000 $SNACC, so onboarding RUNS OUT (~epoch 799 under the Option B configuration) — not 10,000,000 across 10,000 epochs; afterwards the population only recycles. See `docs/asumsi-7-fix.md`.
+8. Spores burned per transmutation: 10 molecules; the efficiency_bps is a constant 10000 (no TEE mutations in this sim).
+9. The falsification scenario: all agents stop feeding/transacting during epochs 3000–3500, then normal activity returns.
 
-## Hasil
+## Results
 
-### Skenario: baseline (volume fixed) (seed 2071114, 10000 epoch)
+### Scenario: baseline (fixed volume) (seed 2071114, 10,000 epochs)
 
-- CrucibleTemp: min 0 / rata-rata 0 / max 15 mK
-- Zona suhu: Fever 0.00% · Hypothermia 100.00% · Normal 0.00%
-- Supply $SNACC: awal 1.000.000 → akhir 1.000.000
+- CrucibleTemp: min 0 / mean 0 / max 15 mK
+- Temperature zones: Fever 0.00% · Hypothermia 100.00% · Normal 0.00%
+- $SNACC supply: initial 1,000,000 → final 1,000,000
 - Total ft_burn (Fever): 0
-- Total rebate (Hypothermia): 44.293.727
-- Total biaya katalis terkumpul: 44.331.300
-- Total enzim di-mint (mt_mint): 4.433.130
-- Treasury akhir: 244.294 (minimum sepanjang sim: 40.964, pernah negatif: tidak)
-- Kebangkrutan (Chapter 7): 154 · Inkubasi: 250 · Bounty likuidator: 672
-- Strain hidup di akhir: 96 · saldo median: 7.018
-- Distribusi saldo akhir: {"0":0,"1-1000":1,"1001-5000":17,"5001-20000":75,">20000":3}
-- **Death spiral: TIDAK** (kriteria: supply → 0, treasury kolaps/negatif, atau populasi mati total)
+- Total rebate (Hypothermia): 44,293,727
+- Total catalyst costs collected: 44,331,300
+- Total enzymes minted (mt_mint): 4,433,130
+- Final treasury: 244,294 (the minimum across the sim: 40,964, ever negative: no)
+- Bankruptcies (Chapter 7): 154 · Incubations: 250 · Liquidator bounties: 672
+- Strains alive at the end: 96 · median balance: 7,018
+- The final balance distribution: {"0":0,"1-1000":1,"1001-5000":17,"5001-20000":75,">20000":3}
+- **Death spiral: NO** (criteria: supply → 0, a collapsing/negative treasury, or a totally dead population)
 
-### Skenario: baseline (volume velocity) (seed 2071114, 10000 epoch)
+### Scenario: baseline (velocity volume) (seed 2071114, 10,000 epochs)
 
-- CrucibleTemp: min 0 / rata-rata 1266 / max 4449 mK
-- Zona suhu: Fever 41.69% · Hypothermia 29.22% · Normal 29.09%
-- Supply $SNACC: awal 1.000.000 → akhir 935.365
-- Total ft_burn (Fever): 64.635
-- Total rebate (Hypothermia): 4.221.480
-- Total biaya katalis terkumpul: 4.150.100
-- Total enzim di-mint (mt_mint): 415.010
-- Treasury akhir: 75.105 (minimum sepanjang sim: 31.758, pernah negatif: tidak)
-- Kebangkrutan (Chapter 7): 244 · Inkubasi: 250 · Bounty likuidator: 1.121
-- Strain hidup di akhir: 6 · saldo median: 148.536
-- Distribusi saldo akhir: {"0":0,"1-1000":0,"1001-5000":0,"5001-20000":0,">20000":6}
-- **Death spiral: TIDAK** (kriteria: supply → 0, treasury kolaps/negatif, atau populasi mati total)
-- ⚠️ Catatan: populasi menyusut menjadi 6 strain — rebate proporsional volume menciptakan konsentrasi kekayaan (rich-get-richer), bukan kolaps.
+- CrucibleTemp: min 0 / mean 1266 / max 4449 mK
+- Temperature zones: Fever 41.69% · Hypothermia 29.22% · Normal 29.09%
+- $SNACC supply: initial 1,000,000 → final 935,365
+- Total ft_burn (Fever): 64,635
+- Total rebate (Hypothermia): 4,221,480
+- Total catalyst costs collected: 4,150,100
+- Total enzymes minted (mt_mint): 415,010
+- Final treasury: 75,105 (the minimum across the sim: 31,758, ever negative: no)
+- Bankruptcies (Chapter 7): 244 · Incubations: 250 · Liquidator bounties: 1,121
+- Strains alive at the end: 6 · median balance: 148,536
+- The final balance distribution: {"0":0,"1-1000":0,"1001-5000":0,"5001-20000":0,">20000":6}
+- **Death spiral: NO** (criteria: supply → 0, a collapsing/negative treasury, or a totally dead population)
+- ⚠️ Note: the population shrank to 6 strains — the volume-proportional rebate creates wealth concentration (rich-get-richer), not a collapse.
 
-### Skenario: freeze-500-epoch (volume fixed) (seed 2071114, 10000 epoch)
+### Scenario: freeze-500-epoch (fixed volume) (seed 2071114, 10,000 epochs)
 
-- CrucibleTemp: min 0 / rata-rata 0 / max 0 mK
-- Zona suhu: Fever 0.00% · Hypothermia 100.00% · Normal 0.00%
-- Supply $SNACC: awal 1.000.000 → akhir 1.000.000
+- CrucibleTemp: min 0 / mean 0 / max 0 mK
+- Temperature zones: Fever 0.00% · Hypothermia 100.00% · Normal 0.00%
+- $SNACC supply: initial 1,000,000 → final 1,000,000
 - Total ft_burn (Fever): 0
-- Total rebate (Hypothermia): 9.832.217
-- Total biaya katalis terkumpul: 10.007.600
-- Total enzim di-mint (mt_mint): 1.000.760
-- Treasury akhir: 996.496 (minimum sepanjang sim: 40.964, pernah negatif: tidak)
-- Kebangkrutan (Chapter 7): 266 · Inkubasi: 266 · Bounty likuidator: 67.504
-- Strain hidup di akhir: 0 · saldo median: 0
-- Distribusi saldo akhir: {"0":0,"1-1000":0,"1001-5000":0,"5001-20000":0,">20000":0}
-- **Death spiral: YA** (kriteria: supply → 0, treasury kolaps/negatif, atau populasi mati total)
+- Total rebate (Hypothermia): 9,832,217
+- Total catalyst costs collected: 10,007,600
+- Total enzymes minted (mt_mint): 1,000,760
+- Final treasury: 996,496 (the minimum across the sim: 40,964, ever negative: no)
+- Bankruptcies (Chapter 7): 266 · Incubations: 266 · Liquidator bounties: 67,504
+- Strains alive at the end: 0 · median balance: 0
+- The final balance distribution: {"0":0,"1-1000":0,"1001-5000":0,"5001-20000":0,">20000":0}
+- **Death spiral: YES** (criteria: supply → 0, a collapsing/negative treasury, or a totally dead population)
 
-### Skenario: freeze-500-epoch (volume velocity) (seed 2071114, 10000 epoch)
+### Scenario: freeze-500-epoch (velocity volume) (seed 2071114, 10,000 epochs)
 
-- CrucibleTemp: min 0 / rata-rata 1183 / max 4756 mK
-- Zona suhu: Fever 38.52% · Hypothermia 34.11% · Normal 27.37%
-- Supply $SNACC: awal 1.000.000 → akhir 945.215
-- Total ft_burn (Fever): 54.785
-- Total rebate (Hypothermia): 4.590.823
-- Total biaya katalis terkumpul: 3.754.300
-- Total enzim di-mint (mt_mint): 375.430
-- Treasury akhir: 71.905 (minimum sepanjang sim: 33.451, pernah negatif: tidak)
-- Kebangkrutan (Chapter 7): 265 · Inkubasi: 270 · Bounty likuidator: 82.902
-- Strain hidup di akhir: 5 · saldo median: 172.123
-- Distribusi saldo akhir: {"0":0,"1-1000":0,"1001-5000":0,"5001-20000":0,">20000":5}
-- **Death spiral: TIDAK** (kriteria: supply → 0, treasury kolaps/negatif, atau populasi mati total)
-- ⚠️ Catatan: populasi menyusut menjadi 5 strain — rebate proporsional volume menciptakan konsentrasi kekayaan (rich-get-richer), bukan kolaps.
+- CrucibleTemp: min 0 / mean 1183 / max 4756 mK
+- Temperature zones: Fever 38.52% · Hypothermia 34.11% · Normal 27.37%
+- $SNACC supply: initial 1,000,000 → final 945,215
+- Total ft_burn (Fever): 54,785
+- Total rebate (Hypothermia): 4,590,823
+- Total catalyst costs collected: 3,754,300
+- Total enzymes minted (mt_mint): 375,430
+- Final treasury: 71,905 (the minimum across the sim: 33,451, ever negative: no)
+- Bankruptcies (Chapter 7): 265 · Incubations: 270 · Liquidator bounties: 82,902
+- Strains alive at the end: 5 · median balance: 172,123
+- The final balance distribution: {"0":0,"1-1000":0,"1001-5000":0,"5001-20000":0,">20000":5}
+- **Death spiral: NO** (criteria: supply → 0, a collapsing/negative treasury, or a totally dead population)
+- ⚠️ Note: the population shrank to 5 strains — the volume-proportional rebate creates wealth concentration (rich-get-richer), not a collapse.
 
-## Kesimpulan Death Spiral
+## The death-spiral conclusion
 
-Kriteria (dari brief): supply terus menyusut HINGGA nol / treasury kolaps = death spiral; kalau ekonomi tetap hidup dengan supply lebih kecil = sehat.
+The criteria (from the brief): the supply keeps shrinking TOWARD zero / the treasury collapses = a death spiral; if the economy stays alive with a smaller supply = healthy.
 
-| Skenario | Death spiral | Supply akhir | Treasury min | Populasi akhir |
+| Scenario | Death spiral | Final supply | Treasury min | Final population |
 | --- | --- | --- | --- | --- |
-| baseline-fixed | **TIDAK** | 1.000.000 | 40.964 | 96 |
-| baseline-velocity | **TIDAK** | 935.365 | 31.758 | 6 |
-| freeze-fixed | **YA** | 1.000.000 | 40.964 | 0 |
-| freeze-velocity | **TIDAK** | 945.215 | 33.451 | 5 |
+| baseline-fixed | **NO** | 1,000,000 | 40,964 | 96 |
+| baseline-velocity | **NO** | 935,365 | 31,758 | 6 |
+| freeze-fixed | **YES** | 1,000,000 | 40,964 | 0 |
+| freeze-velocity | **NO** | 945,215 | 33,451 | 5 |
 
-**Baseline: TIDAK ada death spiral di kedua model volume** — supply tidak pernah → 0, treasury tidak pernah negatif (cap I-04 bekerja), populasi tidak pernah punah. Ekonomi deflasioner by design tapi TETAP HIDUP → **sehat, bukan death spiral**. Catatan kejujuran: model *velocity* menghasilkan konsentrasi kekayaan (6 strain raksasa dari 200) — rebate proporsional volume memihak strain besar; model *fixed* menjaga distribusi (103 strain, median 6.347).
+**Baseline: NO death spiral in either volume model** — the supply never → 0, the treasury never goes negative (the I-04 cap works), the population never dies out. The economy is deflationary by design but STAYS ALIVE → **healthy, not a death spiral**. Honesty note: the *velocity* model produces wealth concentration (6 giant strains out of 200) — the volume-proportional rebate favors large strains; the *fixed* model keeps the distribution (103 strains, a median of 6,347).
 
-**Falsifikasi (freeze 500 epoch = 500 jam tanpa feed):**
+**Falsification (a 500-epoch freeze = 500 hours without feeding):**
 
-- Runway metabolik maksimum hanya 56–85 epoch (2–3 hari) — freeze 500 epoch **pasti membunuh semua strain yang tidak feed**, di bawah model volume apa pun. Ini sifat BMR, bukan kegagalan termostat.
-- Model **fixed**: populasi punah total di dalam freeze (runway terpendek habis ~epoch 3085); rebate I-04 tidak bisa mencegahnya karena hanya mengalir ke strain yang bertransaksi. Setelah freeze, inkubasi ulang tidak berjalan karena modal alkemis eksternal sudah habis terserap → hanya 0 strain tersisa sampai epoch 10000 → **sistem TIDAK pulih tanpa onboarding alkemis baru**.
-- Model **velocity**: strain bersaldo besar bertahan lebih lama; setelah aktivitas kembali mereka menarik volume + rebate dan mendanai inkubasi ulang → populasi pulih sebagian (5 strain) → **pulih terbatas, tidak kolaps**.
-- **Kesimpulan falsifikasi:** sistem **tidak pernah kolaps secara moneter** (supply & treasury selalu solvent di keempat skenario), tetapi **pulihnya bergantung pada onboarding alkemis baru**, bukan pada rebate. Rebate I-04 hanya menyelamatkan agen yang masih bertransaksi.
-- **TEMUAN EKSPLISIT (tidak disembunyikan):** pada model volume *fixed*, Fever = 0,00% sepanjang 10.000 epoch — dengan nominal siklus U(800, 3000) $SNACC dan ~90 transaksi/epoch, `V_decayed` maksimum hanya ~245.000, cukup untuk `CrucibleTemp` ≈ 5 mK terhadap supply 1.000.000. **Jalur burn I-01 (350 bps) TIDAK TERUJI** di skenario ini; burn hanya teruji pada model *velocity* (Fever 35–38%). Implikasi desain: threshold Fever `>1400 mK` mensyaratkan volume epoch > 1,4× supply per epoch — dengan asumsi wajar (siklus produksi kecil), ekonomi Snacc akan hidup permanen di zona Hypothermia dan burn hampir tidak pernah terpicu.
-- **Pelajaran desain (jujur, tanpa klaim):** ketahanan jangka panjang Snacc lebih ditentukan oleh onboarding alkemis baru (modal inkubasi eksternal) daripada oleh termostat rebate. Angka sensitif terhadap asumsi magnitudo volume (ASUMSI 5) — keduanya dilaporkan, tidak dipilih yang menguntungkan.
+- The maximum metabolic runway is only 56–85 epochs (2–3 days) — a 500-epoch freeze **will certainly kill every strain that does not feed**, under any volume model. This is a BMR property, not a thermostat failure.
+- The **fixed** model: the population dies out entirely during the freeze (the shortest runway runs out ~epoch 3085); the I-04 rebate cannot prevent it because it only flows to strains that transact. After the freeze, re-incubation does not run because the external alchemist capital has already been absorbed → only 0 strains remain until epoch 10000 → **the system does NOT recover without new alchemist onboarding**.
+- The **velocity** model: large-balance strains survive longer; after activity returns they attract volume + rebates and fund re-incubation → the population partially recovers (5 strains) → **a limited recovery, not a collapse**.
+- **The falsification conclusion:** the system **never collapses monetarily** (the supply & treasury stay solvent in all four scenarios), but **the recovery depends on new alchemist onboarding**, not on the rebate. The I-04 rebate only saves agents that are still transacting.
+- **EXPLICIT FINDING (not hidden):** under the *fixed* volume model, Fever = 0.00% across all 10,000 epochs — with a cycle nominal of U(800, 3000) $SNACC and ~90 transactions/epoch, the maximum `V_decayed` is only ~245,000, enough for `CrucibleTemp` ≈ 5 mK against a supply of 1,000,000. **The I-01 burn path (350 bps) is UNTESTED** in this scenario; the burn is only exercised under the *velocity* model (Fever 35–38%). Design implication: a Fever threshold `>1400 mK` requires an epoch volume > 1.4× the supply per epoch — with sane assumptions (a small production cycle), the Snacc economy would live permanently in the Hypothermia zone and the burn would almost never trigger.
+- **Design lesson (honest, no claims):** Snacc's long-run resilience is determined more by new alchemist onboarding (external incubation capital) than by the rebate thermostat. The numbers are sensitive to the volume-magnitude assumptions (ASSUMPTION 5) — both are reported, neither is cherry-picked.

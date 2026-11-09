@@ -1,100 +1,100 @@
-# ASUMSI #7 (onboarding eksternal) — investigasi "kebocoran suplai" simulasi
+# ASSUMPTION #7 (external onboarding) — investigating a "supply leak" in the simulation
 
-Status: investigasi selesai 2026-11-08. Ruang lingkup: `scripts/econ-sim.mjs` + docs. Kontrak tidak disentuh. `$SNACC` testnet tanpa nilai uang.
+Status: the investigation finished on 2026-11-08. Scope: `scripts/econ-sim.mjs` + docs. The contract was not touched. `$SNACC` testnet has no monetary value.
 
-## Kesimpulan jujur
+## The honest conclusion
 
-**ASUMSI #7 tidak mencetak suplai. Selisih −44,2 juta di `demo:e2e` adalah salah ukur di rumus skrip demo e2e, bukan kebocoran model.** `econ-report-1..4` tidak terpengaruh: setelah investigasi, semua metrik kunci identik (diff = 0) untuk konfigurasi fixed, velocity, Opsi B (VOLUME_SCALE=5), dan varian ATP.
+**ASSUMPTION #7 does not mint supply. The −44.2 million discrepancy in `demo:e2e` is a measuring error in the demo e2e script's formula, not a model leak.** `econ-report-1..4` are unaffected: after the investigation, all key metrics are identical (diff = 0) for the fixed, velocity, Option B (VOLUME_SCALE=5), and ATP-variant configurations.
 
-Ada satu masalah lain yang nyata dan sekarang didokumentasikan: onboarding **habis** di sekitar epoch 799, tidak berjalan 10.000 epoch seperti kesan dari teks lama.
+There is one other real problem, now documented: onboarding **runs out** around epoch 799; it does not run for 10,000 epochs as the old text suggested.
 
-## 1. Akar baris kode
+## 1. The root code line
 
-`scripts/econ-sim.mjs`, fase 3 (onboarding):
+`scripts/econ-sim.mjs`, phase 3 (onboarding):
 
 ```js
-const extPool = totalSupply - treasury - alchemistPool - Σ strain.balance;   // residual pemegang eksternal
-const inflow  = Math.min(A.EXTERNAL_INFLOW, Math.max(0, extPool));            // dibatasi extPool
+const extPool = totalSupply - treasury - alchemistPool - Σ strain.balance;   // the external-holder residual
+const inflow  = Math.min(A.EXTERNAL_INFLOW, Math.max(0, extPool));            // capped by extPool
 alchemistPool += inflow;
 ```
 
-Inflow diambil dari residual pemegang eksternal dan dibatasi olehnya, jadi `totalSupply` tidak berubah. Rumus di skrip demo e2e (beat 2) yang menghasilkan −44,2 juta:
+The inflow is taken from the external-holder residual and capped by it, so `totalSupply` does not change. The formula in the demo e2e script (beat 2) that produced −44.2 million:
 
 ```js
 totalDistribusi = treasuryFinal + totalRebate + Σ finalBalances + bountyPaid
 selisih = supplyFinal + totalBurned - totalDistribusi
 ```
 
-salah karena dua hal: (a) `totalRebate` adalah **arus kumulatif** treasury → strain yang berputar ulang tiap epoch Hypothermia (44.401.753 pada Opsi B); menjumlahkannya dengan saldo akhir menghitung ulang uang yang sama; (b) `bountyPaid` sudah ada di `alchemistPool`, dan `alchemistPool`/pemegang eksternal tidak dihitung sama sekali. Angka hasilnya tepat 45.243.163 = 258.608 + 44.401.753 + 581.934 + 868, sama dengan temuan awal.
+is wrong for two reasons: (a) `totalRebate` is a **cumulative flow** of treasury → strain that recycles every Hypothermia epoch (44,401,753 under Option B); summing it with the final balances counts the same money twice; (b) `bountyPaid` is already inside `alchemistPool`, and `alchemistPool`/the external holders are not counted at all. The resulting figure is exactly 45,243,163 = 258,608 + 44,401,753 + 581,934 + 868 — the same as the initial finding.
 
-## 2. Bukti: konservasi tertutup eksak (Opsi B, seed 2071114)
+## 2. Evidence: exact closed conservation (Option B, seed 2071114)
 
-Buku besar independen ditambahkan ke `runSimulation` (`result.conservation`): saldo pemegang eksternal dilacak eksplisit, lalu dibandingkan dengan residual tiap epoch. Hasil pada semua 4 konfigurasi: `maxAbsDrift = 0`, `minResidual = 0` (tidak pernah negatif), `closes = true`.
+An independent ledger was added to `runSimulation` (`result.conservation`): the external-holder balance is tracked explicitly, then compared against the residual every epoch. The result on all 4 configurations: `maxAbsDrift = 0`, `minResidual = 0` (never negative), `closes = true`.
 
-| Komponen (Opsi B, akhir 10.000 epoch) | $SNACC |
+| Component (Option B, after 10,000 epochs) | $SNACC |
 | --- | ---: |
-| Treasury | 258.608 |
-| Dompet alkemis | 868 |
-| Σ saldo strain (95 hidup) | 581.934 |
-| Pemegang eksternal | 0 |
-| **Jumlah = `supplyFinal`** | **841.410** |
-| `totalBurned` | 158.590 |
-| Suplai awal (= 841.410 + 158.590) | 1.000.000 |
+| Treasury | 258,608 |
+| The alchemist wallet | 868 |
+| Σ strain balances (95 alive) | 581,934 |
+| External holders | 0 |
+| **Sum = `supplyFinal`** | **841,410** |
+| `totalBurned` | 158,590 |
+| Initial supply (= 841,410 + 158,590) | 1,000,000 |
 
-Rumus yang benar: `supply = treasury + alkemis + Σ strain + eksternal` (selisih 0). Rumus lama: selisih −44.243.163.
+The correct formula: `supply = treasury + alchemists + Σ strains + external` (a 0 discrepancy). The old formula: a −44,243,163 discrepancy.
 
-## 3. Dampak: before / after
+## 3. Impact: before / after
 
-"Before" = kode sebelum instrumentasi; "after" = sesudahnya. Metrik identik karena instrumentasi hanya membaca state (diverifikasi dengan perbandingan JSON seluruh metrik).
+"Before" = the code before instrumentation; "after" = after it. The metrics are identical because the instrumentation only reads state (verified with a JSON comparison of all metrics).
 
-| Konfigurasi | Fever% | Hypo% | Suplai akhir | Hidup | Median saldo | Berubah? |
+| Configuration | Fever% | Hypo% | Final supply | Alive | Median balance | Changed? |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| fixed | 0,00 | 100,00 | 1.000.000 | 96 | 7.018 | tidak |
-| velocity | 41,69 | 29,22 | 935.365 | 6 | 148.536 | tidak |
-| Opsi B (report-3, VOLUME_SCALE=5, Fever 610) | 5,86 | 92,96 | 841.410 | 95 | 4.950 | tidak |
+| fixed | 0.00 | 100.00 | 1,000,000 | 96 | 7,018 | no |
+| velocity | 41.69 | 29.22 | 935,365 | 6 | 148,536 | no |
+| Option B (report-3, VOLUME_SCALE=5, Fever 610) | 5.86 | 92.96 | 841,410 | 95 | 4,950 | no |
 
-### Varian pembanding: bagaimana jika #7 benar-benar mencetak suplai?
+### The comparison variant: what if #7 really did mint supply?
 
-`exogenousInflow: true` (opsional, bukan default) menyuntik 1.000/epoch tanpa sumber dan mencatatnya sebagai `totalExogenous`:
+`exogenousInflow: true` (optional, not the default) injects 1,000/epoch from nowhere and records it as `totalExogenous`:
 
-| Opsi B | Default (finite, tanpa cetak) | Eksogen (mencetak) |
+| Option B | Default (finite, no minting) | Exogenous (mints) |
 | --- | ---: | ---: |
-| Suplai akhir | 841.410 | 11.000.000 (10.000.000 tercetak) |
-| Fever% | 5,86 | **0,00** |
-| Hidup | 95 | 323 |
-| Median saldo | 4.950 | 2.846 |
-| Dalam band Fever 5–30% | ya | **tidak** |
+| Final supply | 841,410 | 11,000,000 (10,000,000 minted) |
+| Fever% | 5.86 | **0.00** |
+| Alive | 95 | 323 |
+| Median balance | 4,950 | 2,846 |
+| Inside the 5–30% Fever band | yes | **no** |
 
-Artinya: seandainya #7 mencetak, `CrucibleTemp = 1000 × V/M` akan diencerkan 11× oleh suplai dan zona Fever hilang di seluruh sweep ATP (Fever ≤ 0,43%). Ini alasan memilih opsi default: **sumber dana jujur (pemegang eksternal yang finite)**, bukan injeksi eksogen. Opsi eksogen dipertahankan hanya sebagai pembanding.
+That means: if #7 minted, `CrucibleTemp = 1000 × V/M` would be diluted 11× by the supply and the Fever zone would vanish across the whole ATP sweep (Fever ≤ 0.43%). This is the reason the default option was chosen: **an honest funding source (finite external holders)**, not an exogenous injection. The exogenous option is kept only as a comparison.
 
-## 4. Sweep ulang ringan — `econ-report-4` (ATP, Opsi B, `S` = ATP_VOLUME_SCALE)
+## 4. A light re-sweep — `econ-report-4` (ATP, Option B, `S` = ATP_VOLUME_SCALE)
 
-Semua baris default sama dengan sebelum perbaikan; Fever tetap dalam 5–30% untuk seluruh S yang diuji:
+All default rows match the pre-fix values; Fever stays inside 5–30% for every tested S:
 
-| S | Fever% | Hypo% | Hidup | Median | Band 5–30% |
+| S | Fever% | Hypo% | Alive | Median | The 5–30% band |
 | ---: | ---: | ---: | ---: | ---: | :-: |
-| 0 | 5,86 | 92,96 | 95 | 4.950 | ya |
-| 1.000 | 5,24 | 93,49 | 87 | 6.209 | ya |
-| 3.000 | 8,46 | 89,98 | 73 | 7.564 | ya |
-| 5.000 | 10,99 | 87,57 | 63 | 8.652 | ya |
-| 10.000 | 16,22 | 82,15 | 49 | 12.427 | ya |
-| 15.000 | 23,77 | 74,87 | 40 | 14.624 | ya |
+| 0 | 5.86 | 92.96 | 95 | 4,950 | yes |
+| 1,000 | 5.24 | 93.49 | 87 | 6,209 | yes |
+| 3,000 | 8.46 | 89.98 | 73 | 7,564 | yes |
+| 5,000 | 10.99 | 87.57 | 63 | 8,652 | yes |
+| 10,000 | 16.22 | 82.15 | 49 | 12,427 | yes |
+| 15,000 | 23.77 | 74.87 | 40 | 14,624 | yes |
 
-Catatan keterbatasan sweep ini: skala `S` yang dipakai `econ-calib-atp.mjs` (0–15.000) adalah skala sim; kontrak memakai ATP dengan satuan berbeda (lihat `docs/en-117-resolution.md`, `S_c = 6e14`). Menjalankan `S = 6e14` langsung di sim membuat populasi mati total (0 hidup) karena V jauh melampaui suplai; itu perbedaan satuan antara sim dan kontrak, bukan akibat perbaikan ini, dan belum direkonsiliasi di sini.
+A limitation of this sweep: the `S` scale used by `econ-calib-atp.mjs` (0–15,000) is the sim scale; the contract uses ATP with a different unit (see `docs/en-117-resolution.md`, `S_c = 6e14`). Running `S = 6e14` directly in the sim kills the whole population (0 alive) because V far exceeds the supply; that is a unit difference between the sim and the contract, not a consequence of this fix, and it has not been reconciled here.
 
-## 5. Yang berubah di kode
+## 5. What changed in the code
 
-- `scripts/econ-sim.mjs`: buku besar konservasi independen + field `result.conservation`, `alchemistPoolFinal`, `strainsBalanceFinal`, `externalPoolFinal`, `totalInflow`, `externalExhaustedEpoch`; opsi `exogenousInflow` (pembanding); teks ASUMSI #7 diperjelas. Perilaku default tidak berubah.
-- `docs/econ-sim.md`: ASUMSI #7 diperbarui (regenerasi dari template).
+- `scripts/econ-sim.mjs`: an independent conservation ledger + the `result.conservation`, `alchemistPoolFinal`, `strainsBalanceFinal`, `externalPoolFinal`, `totalInflow`, `externalExhaustedEpoch` fields; the `exogenousInflow` option (for comparison); the ASSUMPTION #7 text clarified. The default behavior did not change.
+- `docs/econ-sim.md`: ASSUMPTION #7 updated (regenerated from the template).
 
-## 6. Batas jujur ASUMSI #7 (model, bukan bug)
+## 6. The honest limits of ASSUMPTION #7 (a model, not a bug)
 
-1. Pemegang eksternal awal hanya 800.000 $SNACC, jadi onboarding habis di epoch ~799 (Opsi B). Sesudahnya tidak ada dana baru; "1.000/epoch" tidak berlangsung sepanjang 10.000 epoch.
-2. Arus hanya satu arah: tidak ada pemegang yang menjual keluar. Model tidak menangkap tekanan jual.
-3. Pemilihan alkemis/inkubasi dibatasi `alchemistPool ≥ INCUBATION_STAKE`, jadi ukuran populasi bergantung langsung pada asumsi ini.
+1. The initial external holders hold only 800,000 $SNACC, so onboarding runs out around epoch ~799 (Option B). After that there is no new money; "1,000/epoch" does not run for the full 10,000 epochs.
+2. The flow is one-way: no holder ever sells out. The model does not capture sell pressure.
+3. The alchemist/incubation selection is gated by `alchemistPool ≥ INCUBATION_STAKE`, so the population size depends directly on this assumption.
 
-## 7. Rekomendasi
+## 7. Recommendations
 
-- **Pertahankan kalibrasi** `VOLUME_SCALE = 5` (report-3) dan skala ATP (report-4). Tidak ada angka yang bergeser; tidak perlu rekalibrasi.
-- **Perbaiki rumus beat 2 di skrip demo e2e**: identitas yang benar adalah `supplyFinal == treasuryFinal + alchemistPoolFinal + strainsBalanceFinal + externalPoolFinal` + asersi `sim.conservation.closes === true` (fail keras bila tidak); penjumlahan `totalRebate`/`bountyPaid` dan teks "kebocoran ASUMSI #7" dibuang. Skrip demo e2e dan buku besar konservasi (`result.conservation`) belum ada di repo `scripts` publik; bagian ini hanya mencatat diagnosis dan rumus yang benar.
-- Bila ingin onboarding berkelanjutan sepanjang 10.000 epoch, naikkan `ALCHEMIST_POOL_INIT`/pemegang eksternal atau modelkan arus masuk sebagai injeksi eksogen **dan** laporkan terpisah sebagai "injeksi eksogen" — tetapi itu mengubah kalibrasi (lihat tabel varian, Fever runtuh) dan harus di-sweep ulang.
+- **Keep the calibration** `VOLUME_SCALE = 5` (report-3) and the ATP scale (report-4). No numbers moved; no recalibration needed.
+- **Fix the beat 2 formula in the demo e2e script**: the correct identity is `supplyFinal == treasuryFinal + alchemistPoolFinal + strainsBalanceFinal + externalPoolFinal` plus an assertion `sim.conservation.closes === true` (hard fail when it does not); drop the `totalRebate`/`bountyPaid` summing and the "ASSUMPTION #7 leak" text. The demo e2e script and the conservation ledger (`result.conservation`) are not yet in the public `scripts` repo; this section only records the diagnosis and the correct formula.
+- If you want onboarding to run for the full 10,000 epochs, raise `ALCHEMIST_POOL_INIT`/the external holders or model the inflow as an exogenous injection **and** report it separately as "an exogenous injection" — but that changes the calibration (see the variant table, Fever collapses) and must be re-swept.
