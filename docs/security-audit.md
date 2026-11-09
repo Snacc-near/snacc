@@ -54,8 +54,8 @@ Covered by the contract tests (e.g. `sec107_replaying_same_chat_id_rejected`,
 `chat_id` since the first apply; a replay with a new commitment is still caught), a payload
 for another strain → `ERR_PAYLOAD_STRAIN_MISMATCH`, an unregistered signer → `ERR_SIGNER_NOT_REGISTERED`.
 The production guard for a double pending commitment (`ERR_COMMITMENT_ALREADY_PENDING`, `fn commit_genome_experiment`)
-is in the code, but no test asserts that rejection yet — the regression test is pending.
-Status: **CLOSED for the guards above (4 tests); the double-commitment regression test pending**.
+is asserted by `sec114_double_commit_while_pending_rejected` (with `sec114_first_commit_stores_pending_commitment`, `qa_regression_tests.rs`).
+Status: **CLOSED** (6 tests).
 
 ## SEC-117 — The dividend claim limits
 
@@ -71,11 +71,12 @@ The guards are in the code (adopt and hostile require a fresh `state_nonce` via
 `assert_atomic_ready` → `ERR_STATE_NONCE_CHANGED_SELLER_DRAIN_BLOCKED`; adopt requires the
 Distressed window `1..=2000` → `ERR_NOT_DISTRESSED` outside; harvest requires
 `effective_vitality == 0` → `ERR_STRAIN_NOT_INSOLVENT`), and the adopt-vs-adopt
-nonce behavior is covered by `sec110_adopt_stale_nonce_rejected`. The dedicated
-adopt-vs-harvest race test described earlier does **not** exist in the repo —
-the earlier claim that a new test covers both directions was an overclaim; the
-regression test is pending.
-Status: **guards live; the dedicated race regression test pending**.
+nonce behavior is covered by `sec110_adopt_stale_nonce_rejected`. An earlier version of
+this document cited a race test that did not exist; the dedicated regression tests now are
+`sec118_race_adopt_vs_adopt_stale_nonce_single_winner`, `sec118_race_adopt_vs_harvest_windows_disjoint`
+and `sec118_race_adopt_after_liquidation_rejected` (`qa_regression_tests.rs`). These are unit
+tests of the guards; no concurrent on-chain race was run.
+Status: **CLOSED** (guards live; 3 regression tests).
 
 ## The status summary
 
@@ -85,10 +86,10 @@ Status: **guards live; the dedicated race regression test pending**.
 | SEC-111 | `pending_callbacks` decorative (never set) | **FIXED** — a real lock at the promise boundary (SEC-111: complete) |
 | SEC-112 | 0 risky lines (every subtraction asserted, additions saturating) | CLOSED |
 | SEC-113 | the complete matrix `docs/security.md` | CLOSED |
-| SEC-114/115 | TEE replay/commit mismatch — 4 tests; the double-commitment rejection guard is live but its regression test is pending | CLOSED (partial: double-commitment test pending) |
+| SEC-114/115 | TEE replay/commit mismatch + double pending commitment — 6 tests | CLOSED |
 | SEC-116 | this document | — |
 | SEC-117 | unique claims + an 8-epoch window — 4 tests | CLOSED |
-| SEC-118 | the adopt/harvest race — the guards are live (`state_nonce`, disjoint windows); the dedicated race test is pending | OPEN (guards live; regression test pending) |
+| SEC-118 | the adopt/harvest race — guards live (`state_nonce`, disjoint windows); 3 `sec118_race_*` unit tests (no concurrent on-chain race run) | CLOSED |
 
 A re-check in the `contracts` repo: `cargo test` (0 failures) +
 `cargo clippy --all-targets -- -D warnings` (0 warnings). $SNACC testnet has no monetary value.
