@@ -23,10 +23,16 @@ step below requires **explicit owner approval** (project rule) and is therefore 
       **live-verified on the deployed wasm (KPI G-22 PASS)**. Until 2026-11-09 they were not yet
       present in the public contract source; contracts PR #21 added them, so the public source now
       exposes the same 67-function ABI as the deployed contract (structural ABI parity —
-      function list unchanged, not byte-identical wasm: deployed code_hash
-      3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B; since contracts PR #22 the
-      source is ahead on NEP-297 events only — `ft_mint` and string `amount`, in source not
-      yet deployed) — marketplaces rely on them for collection browsing.
+      function list unchanged, not byte-identical wasm: current deployed code_hash
+      `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr`, 517,185 B, GLADI-8 redeploy 2026-11-09 —
+      deploy `BF3MfUnpCtcqqXfBWnusDixvHHENBX2FrUHVhbEZQM7V`, migrate
+      `G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25`, built from contracts main [1281154](https://github.com/Snacc-near/contracts/commit/1281154a437181cf657e6ced8db71f73909f7ae8)
+      including PR #22; the earlier deployment, code_hash
+      `3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt`, 406,495 B, is history). Contracts PR #22
+      items (`ft_mint`, string `amount`) are live with the same redeploy — `ft_mint` tx
+      `5JCAmSL7pLTV8mShrNuEtG5WLPkCqKkYCZBf5WGtQ2wY`, string-amount `ft_burn` tx
+      `ERBRL4rTS6JHEKVsSumLYtru1hXsSYWdkGJH8d1krJaL` — marketplaces rely on the enumeration
+      views for collection browsing.
 - [ ] **NEP-177 `nft_metadata`** (contract-level metadata) — same status as above: verified live
       (KPI G-22 PASS); until 2026-11-09 it was not yet in the public source, now added in
       contracts PR #21 on the same parity terms (marketplace pages commonly fetch it).

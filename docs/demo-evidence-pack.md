@@ -1,7 +1,9 @@
 # DEMO-106 — Demo Evidence Pack (written "screenshots", no FE required)
 
 **Status:** evidence captured **live on 2026-11-09** from this machine against the current
-`snacc-v001.testnet` deployment (redeployed 2026-11-08; gladi: 51 tx, 22 KPI PASS);
+`snacc-v001.testnet` deployment (GLADI-8 redeploy 2026-11-09 — deploy `BF3MfUnpCtcqqXfBWnusDixvHHENBX2FrUHVhbEZQM7V`,
+migrate `G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25`, code_hash `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr`;
+gladi: 51 tx, 22 KPI PASS);
 every block below is real terminal/API output pasted verbatim (only truncation marks added where noted).
 This pack substitutes for UI screenshots that need the frontend (`DEMO-101..104` video still pending owner acc).
 **Item:** DEMO-106 · refreshed 2026-11-09 (earlier capture 2026-11-08 is quoted below where marked).
@@ -14,17 +16,18 @@ How each block was produced is shown above it, so a reviewer can re-run the same
 ## E1 · Step 1 — the contract account is alive on chain
 
 ```bash
-curl -s -X POST https://near-testnet.drpc.org -H 'content-type: application/json' \
+curl -s -X POST https://rpc.testnet.near.org -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":"v","method":"query","params":{"request_type":"view_account","finality":"final","account_id":"snacc-v001.testnet"}}'
 ```
 
 ```json
-{"amount":"9635625232990506100000000","block_hash":"6TaEnHF6wmmGf7ARc3CCBEE8k5ERA6LLpwegoG6Bbwqe","block_height":276879122,"code_hash":"3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt","locked":"0","storage_paid_at":0,"storage_usage":450706}
+{"amount":"9609029880915233200000000","block_hash":"65TXT9k1yLM2SQHapeFQL8f8G86iBUP5qQRhoyhwahgq","block_height":276922201,"code_hash":"DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr","locked":"0","storage_paid_at":0,"storage_usage":580853}
 ```
 
 Explorer link (`testnet.nearblocks.io/account/snacc-v001.testnet`) renders in a browser; from our
 network `curl` gets **HTTP 403** (bot wall) — recorded honestly, the RPC output above is the
-machine-checkable substitute. (Earlier capture, 2026-11-08, block 276760040.)
+machine-checkable substitute. The `code_hash` above is the GLADI-8 deployment (`DMRgsiLJ…`);
+the previous deployment showed `3DCPVk658…` at block 276760040 (2026-11-08 capture, superseded).
 
 ## E2 · Step 2 — full offline replay of the demo (zero keys)
 
@@ -70,6 +73,11 @@ OCB-01 CONTEXT — OpenChainBench near-rpc status=live · leader=FastNEAR p50=33
 (`EXIT=0`.)
 
 ## E4 · Step 4 — one zero-trust TEE transaction, raw logs from the chain
+
+> Note: E4–E6 below quote transactions from the **previous deployment** (2026-11-08, code_hash
+> `3DCPVk658…`), captured before the GLADI-8 redeploy wiped that state. The live receipts of the
+> current deployment are in [`docs/evidence-pack.md`](evidence-pack.md) (auto-checked in
+> `evidence/gladi-kpi.md`, 22 PASS · 0 FAIL · 0 NOT YET).
 
 ```bash
 curl -s -X POST https://near-testnet.drpc.org -H 'content-type: application/json' \
