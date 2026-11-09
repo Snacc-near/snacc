@@ -7,9 +7,9 @@ that hurt.
 
 ## 1. What went well (short)
 
-- 257 contract tests green with 0 warnings (`cargo test -p snacc`, verified 2026-11-09 against
-  contracts origin/main) plus a keyless thesis verifier (`npm run verify:thesis`, falsifiers
-  F-01..F-03) and a zero-key offline demo replay.
+- 288 contract tests (contracts PR #21) with 0 warnings (`cargo test -p snacc`, verified
+  2026-11-09 against contracts origin/main) plus a keyless thesis verifier (`npm run verify:thesis`,
+  falsifiers F-01..F-03) and a zero-key offline demo replay.
 - Zero-key TEE evidence path: signed reasoning bundles re-verifiable with `env::ed25519_verify`
   without any API key.
 
@@ -56,7 +56,9 @@ audit-fix bundle; `get_global_solvency` on the current deployment reports `drift
 (`evidence/gladi-manifest.json` `solvency_final`; `docs/evidence-pack.md` C2). Solvency asserts
 live in the contracts QA suites (the `qa_audit_tests.rs` and `qa_regression_tests.rs`
 suites — the original v04 integration-test path no longer exists under that name on contracts
-origin/main; original commit hash unverified here).
+origin/main; original commit hash unverified here). Public-source parity also landed:
+`hostile_takeover_splice` now credits the seller via `set_account_balance`
+(contracts:snacc/src/lib.rs:1668) in contracts PR #21 (V-04 parity).
 
 **Lesson.** An accumulator invariant needs a *single* write path and an audit of every mutation
 point; we audited the others (`splice`, `lysis`, `adopt`, `divide`, dividends, NPC, ft_*) — one
@@ -104,9 +106,9 @@ validator exists that we could run; this was a name/signature comparison, not be
 
 | Gap | Status (2026-11-09) | Consequence |
 |---|---|---|
-| **NEP-181 enumeration** (`nft_total_supply`, `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner`) | live-verified on the deployed wasm (KPI G-22 PASS); **not yet in the public contract source** | **blocks marketplace listing** until the public-source gap closes (Mintbase/HOT Craft browse) |
-| **NEP-177 contract-level `nft_metadata`** | live-verified on the deployed wasm (KPI G-22 PASS); **not yet in the public source** | claim of "NEP-177 compliant" would be false today for the public source |
-| **NEP-145 storage management** | **partial** — no `storage_unregister` by design (deregistration via full `storage_withdraw`), `storage_balance_bounds` deployed-wasm-only | wallets/DEX calling those methods will fail |
+| **NEP-181 enumeration** (`nft_total_supply`, `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner`) | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public contract source** — **closed by contracts PR #21** (public source now exposes the same 67-function ABI; structural ABI parity, not byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B, build of new main 418,327 B) | the marketplace-listing block that applied while the gap was open no longer applies on parity grounds (Mintbase/HOT Craft browse views are present in the public source) |
+| **NEP-177 contract-level `nft_metadata`** | live-verified on the deployed wasm (KPI G-22 PASS); until 2026-11-09 **not yet in the public source** — **closed by contracts PR #21** on the same parity terms | the "NEP-177 compliant" claim for the public source, false while the gap was open, is now supported by the source |
+| **NEP-145 storage management** | was **partial** — no `storage_unregister` by design (deregistration via full `storage_withdraw`), `storage_balance_bounds` deployed-wasm-only — **closed by contracts PR #21**: `storage_balance_bounds` (contracts:snacc/src/lib.rs:2237) and `storage_unregister` (contracts:snacc/src/lib.rs:2250) are now in the public source | wallets/DEX calling those methods failed while the gap was open; both are present since PR #21 |
 
 Also recorded there (context, not findings-in-code): NEP-141/171/177/297 pass the method/shape
 check with notes (`ft_burn` is a non-standard extension; no NEP-178 approvals; NEP-245 is a data
@@ -168,11 +170,15 @@ agents' completion reports too.
 ## 8. Open items (updated 2026-11-09; first-draft entries kept with their new status)
 
 - `V-04`: code patch **merged** (SEC-104, §3); live deployment redeployed 2026-11-08 and
-  `get_global_solvency` reports `drift: 0`. **Closed on chain** — only the public-source rebuild of the
-  NEP views (§6) remains.
+  `get_global_solvency` reports `drift: 0`. **Closed on chain and in the public source** —
+  `hostile_takeover_splice` credits the seller via `set_account_balance`
+  (contracts:snacc/src/lib.rs:1668) in contracts PR #21 (V-04 parity, §3).
 - SEC-103 NEP report: written and published as `docs/nep-compliance.md`; NEP-145/177/181
-  live-verified on the deployed wasm (KPI G-22), **not yet in the public contract source** (§6).
-  NEP-178 **not done** (optional).
+  live-verified on the deployed wasm (KPI G-22). Until 2026-11-09 the NEP views were **not yet
+  in the public contract source** (§6); contracts PR #21 added them, so the public source now
+  exposes the same 67-function ABI (structural ABI parity, not byte-identical wasm: deployed
+  code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt 406,495 B, build of new main
+  418,327 B). NEP-178 **not done** (optional).
 - Align `README.md` NEP-245 wording with the corrected claim (§6) — the README describes
   "a `NEP-245` inventory"; the public scope note ("no public `mt_*` surface") lives in
   `docs/nep-compliance.md` — keep both in sync going forward.

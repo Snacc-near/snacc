@@ -20,16 +20,19 @@ step below requires **explicit owner approval** (project rule) and is therefore 
       assets/royalties are a product decision — project rule: explicit approval required).
 - [ ] **NEP-181 enumeration** (`nft_total_supply`, `nft_tokens`, `nft_supply_for_owner`,
       `nft_tokens_for_owner`) — per the public `docs/nep-compliance.md` (SEC-103), these views are
-      **live-verified on the deployed wasm (KPI G-22 PASS) but not yet present in the public
-      contract source** — marketplaces rely on them for collection browsing, so closing that
-      public-source gap is a **hard prerequisite for any listing**.
+      **live-verified on the deployed wasm (KPI G-22 PASS)**. Until 2026-11-09 they were not yet
+      present in the public contract source; contracts PR #21 added them, so the public source now
+      exposes the same 67-function ABI as the deployed contract (structural ABI parity, not
+      byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt
+      406,495 B, build of new main 418,327 B) — marketplaces rely on them for collection browsing.
 - [ ] **NEP-177 `nft_metadata`** (contract-level metadata) — same status as above: verified live
-      (KPI G-22 PASS), not yet in the public source. Add before claiming NEP-177 compliance
-      (marketplace pages commonly fetch it).
+      (KPI G-22 PASS); until 2026-11-09 it was not yet in the public source, now added in
+      contracts PR #21 on the same parity terms (marketplace pages commonly fetch it).
 - [ ] Contract standards pass: NEP-141/171/177/245/297 compliance check (`docs/nep-compliance.md`,
-      SEC-103) — listing a non-compliant collection gets rejected mid-flow. Note the honest gaps
-      recorded there: NEP-145 partial (`storage_unregister` absent by design — deregistration via
-      full `storage_withdraw`; `storage_balance_bounds` deployed-wasm-only),
+      SEC-103) — listing a non-compliant collection gets rejected mid-flow. Note the recorded
+      design there: NEP-145 `storage_unregister` is now present in the public source (added in
+      contracts PR #21; until then deregistration was via full `storage_withdraw`), and
+      `storage_balance_bounds` is likewise present since contracts PR #21,
       NEP-245 is a data model, **not** a public `mt_*` interface.
 - [ ] On-chain SVG/telemetry assets confirmed rendering (`nft_token` metadata; see the real SVG art
       in `docs/assets/`).

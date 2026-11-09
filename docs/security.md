@@ -1,28 +1,81 @@
 # Snacc — Security
 
-> The `snacc-v001.near` contract method access matrix, invariants, and error codes. Names are copied **verbatim** from `snacc-vault/04 Arsitektur/Snacc - Spec Antarmuka Kontrak.md` and the contract code (`repos/Snacc/contracts/snacc/src`). Implementation status as of 2026-11-07: `VC-001..006` merged.
+> The `snacc-v001.near` contract method access matrix, invariants, and error codes. Names are copied **verbatim** from `snacc-vault/04 Arsitektur/Snacc - Spec Antarmuka Kontrak.md` and the contract code (`repos/Snacc/contracts/snacc/src`). Implementation status as of 2026-11-09: `VC-001..006` merged; access matrix verified against contracts main (SEC-113).
+
+Verified against contracts main @ cabe745 (contracts origin/main, contracts PR #21 merge). Every `pub fn` in `contracts:snacc/src/lib.rs` at that revision has a row below; line numbers are contracts:snacc/src/lib.rs at that revision.
 
 ## 1. The method access matrix
 
-`owner` access = the `predecessor` is the Strain's `owner_id` (checked via `ERR_NOT_OWNED_BY_CALLEE`). `contract owner` = the contract owner (for limited administrative methods such as TEE key rotation).
+`owner` access = the `predecessor` is the Strain's `owner_id` (checked via `ERR_NOT_OWNED_BY_CALLEE`, or `ERR_NOT_STRAIN_OWNER` via `assert_strain_owner`). `contract owner` = the contract owner stored at deploy (`owner_id`, `ERR_NOT_CONTRACT_OWNER`; for limited administrative methods such as TEE key rotation). `anyone` = any predecessor account, subject to the stated deposit / state gates. Views (`&self`, no `#[payable]`) are callable by anyone and change no state.
 
 | Method | Access | Status |
 | --- | --- | :-: |
-| `new` (`#[init]`) | anyone (once, at deploy) | ✅ |
-| `incubate_strain` | anyone who attaches a deposit | ✅ |
-| `materialize_subaccount` | the Strain owner (`#[payable]`, ≥ 0.02 NEAR) | ✅ |
-| `extract_spores` / `transmute_spores_to_enzyme` / `synthesize_elixir` | the Strain owner + a role bitmask (`I-08`) | ✅ |
-| `commit_genome_experiment` | the Strain owner | ✅ |
-| `apply_tee_mutation_zero_trust` | the Strain owner + a valid TEE signature (`I-07`, `I-16`) | ✅ |
-| `splice_strains` | the owner of both Strains (a voluntary merger) | ✅ |
-| `hostile_takeover_splice` | the raider owner; the target must be Tier 2 (`I-09`, `I-14`) | ✅ |
-| `harvest_starving_strain` | anyone; the target must be Tier 3 (`I-10`) | ✅ |
-| `advance_sandbox_clock` | demo/test only | ✅ |
-| `advance_epoch` | anyone (a keeper, `E5`) — the epoch transition | ✅ |
-| `ft_burn` | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`; fixed per `SEC-101`, test `sec101_ft_burn_non_owner_rejected`) | ✅ |
-| `owner_withdraw_snacc` | the Strain owner (`ADR-29`, the nonce rises) | spec v3.0 |
-| `npc_quote_spores` / `npc_buy_spores` | view / the Strain owner (`ADR-30`) | spec v3.0 |
-| `register_attested_signer` | the contract owner (`ADR-33`) | spec v3.0 |
+| `new` (`#[init]`, contracts:snacc/src/lib.rs:287) | anyone (once, at deploy); sets `owner_id` to the predecessor | ✅ |
+| `protocol_version` (view, contracts:snacc/src/lib.rs:324) | anyone (view) | ✅ |
+| `incubate_strain` (`#[payable]`, contracts:snacc/src/lib.rs:334) | anyone; attached deposit must equal the stake (or stake debited from caller `$SNACC` balance when deposit is 0) | ✅ |
+| `materialize_subaccount` (`#[payable]`, contracts:snacc/src/lib.rs:471) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`), ≥ 0.02 NEAR | ✅ |
+| `on_subaccount_created` (`#[private]`, contracts:snacc/src/lib.rs:518) | private callback — only the contract itself | ✅ |
+| `get_strain` (view, contracts:snacc/src/lib.rs:548) | anyone (view) | ✅ |
+| `get_solvency_tier` (view, contracts:snacc/src/lib.rs:558) | anyone (view) | ✅ |
+| `get_crucible_temp` (view, contracts:snacc/src/lib.rs:571) | anyone (view) | ✅ |
+| `get_macro_state` (view, contracts:snacc/src/lib.rs:577) | anyone (view) | ✅ |
+| `advance_epoch` (contracts:snacc/src/lib.rs:590) | anyone (a keeper, `E5`); 24 h epoch gate | ✅ |
+| `ft_burn` (contracts:snacc/src/lib.rs:669) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`; fixed per `SEC-101`, test `sec101_ft_burn_non_owner_rejected`) | ✅ |
+| `extract_spores` (`#[payable]`, contracts:snacc/src/lib.rs:945) | the Strain owner (`assert_strain_owner` → `ERR_NOT_STRAIN_OWNER`) + a role bitmask (`I-08`) | ✅ |
+| `transmute_spores_to_enzyme` (`#[payable]`, contracts:snacc/src/lib.rs:989) | the Strain owner (`ERR_NOT_STRAIN_OWNER`) + a role bitmask (`I-08`) | ✅ |
+| `synthesize_elixir` (`#[payable]`, contracts:snacc/src/lib.rs:1078) | the Strain owner (`ERR_NOT_STRAIN_OWNER`) + a role bitmask (`I-08`) | ✅ |
+| `commit_genome_experiment` (contracts:snacc/src/lib.rs:1278) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`) | ✅ |
+| `apply_tee_mutation_zero_trust` (contracts:snacc/src/lib.rs:1306) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`) + a valid TEE signature (`I-07`, `I-16`) | ✅ |
+| `register_attested_signer` (contracts:snacc/src/lib.rs:1399) | the contract owner (`ERR_NOT_CONTRACT_OWNER`, `ADR-33`) | ✅ |
+| `remove_attested_signer` (contracts:snacc/src/lib.rs:1425) | the contract owner (`ERR_NOT_CONTRACT_OWNER`) | ✅ |
+| `splice_strains` (contracts:snacc/src/lib.rs:1460) | the owner of both Strains (`ERR_NOT_OWNED_BY_CALLEE` + `ERR_NOT_SAME_OWNER`); voluntary merger | ✅ |
+| `hostile_takeover_splice` (contracts:snacc/src/lib.rs:1581) | the raider owner (`ERR_NOT_OWNED_BY_CALLEE`); the target must be Tier 2 (`I-09`, `I-14`); seller credited via `set_account_balance` (contracts:snacc/src/lib.rs:1668) | ✅ |
+| `harvest_starving_strain` (contracts:snacc/src/lib.rs:1736) | anyone; the target must be Tier 3 (`I-10`) | ✅ |
+| `nft_token` (view, contracts:snacc/src/lib.rs:1827) | anyone (view) | ✅ |
+| `nft_metadata` (view, contracts:snacc/src/lib.rs:1884) | anyone (view) | ✅ |
+| `nft_total_supply` (view, contracts:snacc/src/lib.rs:1901) | anyone (view) | ✅ |
+| `nft_tokens` (view, contracts:snacc/src/lib.rs:1906) | anyone (view) | ✅ |
+| `nft_supply_for_owner` (view, contracts:snacc/src/lib.rs:1922) | anyone (view) | ✅ |
+| `nft_tokens_for_owner` (view, contracts:snacc/src/lib.rs:1935) | anyone (view) | ✅ |
+| `ft_balance_of` (view, contracts:snacc/src/lib.rs:1979) | anyone (view) | ✅ |
+| `ft_total_supply` (view, contracts:snacc/src/lib.rs:1984) | anyone (view) | ✅ |
+| `get_total_wealth` (view, contracts:snacc/src/lib.rs:1990) | anyone (view) | ✅ |
+| `ft_transfer` (`#[payable]`, contracts:snacc/src/lib.rs:2006) | anyone as sender (= predecessor); exactly 1 yoctoNEAR (`assert_one_yocto`); receiver must be storage-registered | ✅ |
+| `ft_transfer_call` (`#[payable]`, contracts:snacc/src/lib.rs:2053) | anyone as sender (= predecessor); exactly 1 yoctoNEAR via `ft_transfer`; then a promise to `ft_on_transfer` | ✅ |
+| `on_transfer_call` (`#[private]`, contracts:snacc/src/lib.rs:2082) | private callback — only the contract itself | ✅ |
+| `ft_metadata` (view, contracts:snacc/src/lib.rs:2106) | anyone (view) | ✅ |
+| `storage_deposit` (`#[payable]`, contracts:snacc/src/lib.rs:2126) | anyone, for self or a named `account_id`; ≥ 5 milliNEAR on first registration; `registration_only` refunds excess | ✅ |
+| `storage_withdraw` (`#[payable]`, contracts:snacc/src/lib.rs:2182) | own account only (caller = predecessor); full withdrawal deregisters when no `$SNACC` balance | ✅ |
+| `storage_balance_of` (view, contracts:snacc/src/lib.rs:2225) | anyone (view) | ✅ |
+| `storage_balance_bounds` (view, contracts:snacc/src/lib.rs:2237) | anyone (view) | ✅ |
+| `storage_unregister` (`#[payable]`, contracts:snacc/src/lib.rs:2250) | own account only (caller = predecessor); exactly 1 yoctoNEAR (`assert_one_yocto`); `force` required when `$SNACC` balance > 0 | ✅ |
+| `synthesize_and_redeem_aether` (contracts:snacc/src/lib.rs:2324) | the Strain owner (`ERR_NOT_STRAIN_OWNER`) + Synthesizer role bit | ✅ |
+| `claim_industrial_dividend` (`#[payable]`, contracts:snacc/src/lib.rs:2379) | the Strain owner (`ERR_NOT_STRAIN_OWNER`); attached deposit is refunded defensively | ✅ |
+| `get_dividend_pool` (view, contracts:snacc/src/lib.rs:2457) | anyone (view) | ✅ |
+| `get_epoch_dividend_rate` (view, contracts:snacc/src/lib.rs:2466) | anyone (view) | ✅ |
+| `get_dividend_contribution` (view, contracts:snacc/src/lib.rs:2471) | anyone (view) | ✅ |
+| `get_burst_state` (view, contracts:snacc/src/lib.rs:2491) | anyone (view) | ✅ |
+| `feed_strain` (`#[payable]`, contracts:snacc/src/lib.rs:2513) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`); attached deposit is refunded defensively | ✅ |
+| `get_top_feeder` (view, contracts:snacc/src/lib.rs:2639) | anyone (view) | ✅ |
+| `get_appetite_meter` (view, contracts:snacc/src/lib.rs:2645) | anyone (view) | ✅ |
+| `migrate` (`#[init(ignore_state)]` + `#[private]`, contracts:snacc/src/lib.rs:2711) | private — only the contract itself | ✅ |
+| `get_colony` (view, contracts:snacc/src/lib.rs:2765) | anyone (view) | ✅ |
+| `get_colony_atp` (view, contracts:snacc/src/lib.rs:2784) | anyone (view) | ✅ |
+| `divide_strain` (contracts:snacc/src/lib.rs:2805) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`) | ✅ |
+| `adopt` (contracts:snacc/src/lib.rs:2942) | the raider Strain owner (`ERR_NOT_OWNED_BY_CALLEE`); the target must be Tier 2 (`I-14` nonce) | ✅ |
+| `conjugate_traits` (contracts:snacc/src/lib.rs:3040) | the owner of both Strains (`ERR_NOT_OWNED_BY_CALLEE` + `ERR_NOT_SAME_OWNER`) | ✅ |
+| `get_risk_heat` (view, contracts:snacc/src/lib.rs:3106) | anyone (view) | ✅ |
+| `get_npc` (view, contracts:snacc/src/lib.rs:3123) | anyone (view) | ✅ |
+| `npc_quote_spores` (view, contracts:snacc/src/lib.rs:3161) | anyone (view, `ADR-30`) | ✅ |
+| `npc_buy_spores` (contracts:snacc/src/lib.rs:3174) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`, `ADR-30`) | ✅ |
+| `allocate_atp` (contracts:snacc/src/lib.rs:3235) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`) | ✅ |
+| `nft_transfer` (`#[payable]`, contracts:snacc/src/lib.rs:3322) | the Strain owner (`ERR_NOT_OWNED_BY_CALLEE`); exactly 1 yoctoNEAR (`assert_one_yocto`) | ✅ |
+| `nft_transfer_call` (`#[payable]`, contracts:snacc/src/lib.rs:3387) | the Strain owner (via `nft_transfer`); exactly 1 yoctoNEAR; then a promise to `nft_on_transfer` | ✅ |
+| `nft_resolve_transfer` (`#[private]`, contracts:snacc/src/lib.rs:3432) | private callback — only the contract itself | ✅ |
+| `get_inventory` (view, contracts:snacc/src/lib.rs:3483) | anyone (view) | ✅ |
+| `get_global_solvency` (view, contracts:snacc/src/lib.rs:3496) | anyone (view) | ✅ |
+| `advance_sandbox_clock` (contracts:snacc/src/lib.rs:249) | the contract owner (`ERR_NOT_CONTRACT_OWNER`); `.testnet` only — demo/test | ✅ |
+| `get_sandbox_clock` (view, contracts:snacc/src/lib.rs:278) | anyone (view) | ✅ |
 
 > Honest note: the `ft_burn` row was previously this document's finding (per `SEC-101`, `V-01`: every cash withdrawal/touch must have `predecessor == owner`); the contract now enforces it (see `fn ft_burn` in `contracts:snacc/src/lib.rs` — it asserts the caller against the Strain owner, error `ERR_NOT_OWNED_BY_CALLEE`). There is no admin treasury withdrawal function (`I-05`).
 

@@ -14,7 +14,7 @@ $SNACC testnet has no monetary value. No hash = no claim.
 > (owner-only, .testnet accounts only, max 720 hours/call): BMR aging and the 24-hour epoch gate are accelerated,
 > NOT waiting for real time. The mechanics are the same; the speed of time does not represent production (mainnet has no such clock).
 > G-22 = NEP-177/145/181 trio (nft_metadata · storage_deposit registration_only · nft_* enumeration).
-> G-22 scope: on-chain evidence on the deployed wasm (sha256 in the manifest). The NEP-177/181 view code is not yet in the public `contracts` repo, so this part cannot be rebuilt from public source yet.
+> G-22 scope: on-chain evidence on the deployed wasm (sha256 in the manifest). Until 2026-11-09 the NEP-177/181 view code was not yet in the public `contracts` repo; contracts PR #21 added it, so the public source now exposes the same 67-function ABI as the deployed `snacc-v001.testnet`. Parity is structural (ABI identical), not byte-identical wasm: deployed code_hash 3DCPVk658pGuRW1FrDZKwrXQr3UHfYG43MoQUfbCwJwt (406,495 B, built 2026-11-08); a build of the new main is 418,327 B.
 > This is NOT a product completeness checklist. What is NOT tested here (and must be checked in the Backlog Master):
 > full SDK (`SDK-101..106`), security audit (`SEC-110..118`), NEAR AI integration (`RES-101..103` — Inference SDK,
 > privacy/classify, TDX quote verification), docs (`DOC-*`), ECON tails, full e2e, FE, video.
