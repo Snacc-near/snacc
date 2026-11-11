@@ -74,7 +74,7 @@ Verified against contracts main @ cabe745 (contracts origin/main, contracts PR #
 | `nft_resolve_transfer` (`#[private]`, contracts:snacc/src/lib.rs:3432) | private callback — only the contract itself | ✅ |
 | `get_inventory` (view, contracts:snacc/src/lib.rs:3483) | anyone (view) | ✅ |
 | `get_global_solvency` (view, contracts:snacc/src/lib.rs:3496) | anyone (view) | ✅ |
-| `advance_sandbox_clock` (contracts:snacc/src/lib.rs:249) | the contract owner (`ERR_NOT_CONTRACT_OWNER`); `.testnet` only — demo/test | ✅ |
+| `advance_sandbox_clock` (contracts:snacc/src/lib.rs:249) | the contract owner (`ERR_NOT_CONTRACT_OWNER`); non-mainnet sandbox only — demo/test | ✅ |
 | `get_sandbox_clock` (view, contracts:snacc/src/lib.rs:278) | anyone (view) | ✅ |
 
 > Honest note: the `ft_burn` row was previously this document's finding (per `SEC-101`, `V-01`: every cash withdrawal/touch must have `predecessor == owner`); the contract now enforces it (see `fn ft_burn` in `contracts:snacc/src/lib.rs` — it asserts the caller against the Strain owner, error `ERR_NOT_OWNED_BY_CALLEE`). There is no admin treasury withdrawal function (`I-05`).
