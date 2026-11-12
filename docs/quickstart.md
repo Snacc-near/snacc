@@ -24,7 +24,7 @@ snacc/               # this umbrella (public)
 ├── contracts/       # Rust contract (single atomic unit: NEP-141 + NEP-171/177 + NEP-245 + mechanics)
 ├── sdk/             # lab-sdk (TS): NEP-297 event parser + SnaccClient (npm test)
 ├── backend/         # indexer + /api/crucible/* (M5)
-├── frontend/        # cell-cultivation game UI (M6, live at https://snacc-nu.vercel.app)
+├── frontend/        # landing + cell-cultivation game UI (M6, live at https://snacc-nu.vercel.app, game at /app)
 ├── oracle-tee/      # NEAR AI Cloud TEE client + redaction (M3, npm test)
 ├── scripts/         # economic simulations, gladi runner/KPI, verify:thesis, demo (M7)
 ├── docs/            # architecture/security/api-schemas/glossary/quickstart
@@ -80,7 +80,7 @@ After deploy: `init` → gladi per runbook → `migrate()` on upgrade when the s
 
 ## 7. Judge walkthrough — 30 seconds in the browser
 
-Open **https://snacc-nu.vercel.app** (Vercel, built from `frontend` `main`), or run it locally:
+Open **https://snacc-nu.vercel.app/app** for the game (the root URL is the landing page; Vercel, built from `frontend` `main`), or run it locally (`npm run dev`, then open `/app`):
 
 ```bash
 git clone https://github.com/Snacc-near/frontend.git frontend && cd frontend
@@ -95,4 +95,5 @@ Then, in the browser:
 3. **Produce ATP** — the ATP synthase turbine spins (3 ATP per rotor turn); the Krebs wheel and the electron-transport cable car run the rest of the cycle.
 4. **Attest (TEE)** — the mechanism plays only; nothing is submitted from the UI.
 5. **Switch to live** — `live testnet` shows the 9 testnet strains, with values straight from the API and `—` wherever data is missing (never a fabricated number).
-6. **Read the honesty labels** — `demo · simulated` in demo, `live · /api data only` in live, and `preview only — on-chain transactions need a wallet` next to every action key in live mode.
+6. **Read the honesty labels** — `demo · simulated` in demo, `live · testnet reads only` in live, and `preview only — on-chain transactions need a wallet` next to every action key in live mode.
+7. **Optional: tool windows** — the toolbar opens NPC merchants (contract views `get_npc` / `npc_quote_spores` in live mode), a 1Click swap quote preview, the Great Feast leaderboard, the thesis evidence log (testnet rehearsal 2026-11-09 with tx links), a local recipe search and a local guest label. Fixture values carry a `SIMULATION` chip.
