@@ -1,8 +1,8 @@
 # Snacc — Security
 
-> The `snacc-v001.near` contract method access matrix, invariants, and error codes. Names are copied **verbatim** from `snacc-vault/04 Arsitektur/Snacc - Spec Antarmuka Kontrak.md` and the contract code (`repos/Snacc/contracts/snacc/src`). Implementation status as of 2026-11-09: `VC-001..006` merged; access matrix verified against contracts main (SEC-113).
+> The `snacc-v001.testnet` contract method access matrix, invariants, and error codes. Names are copied **verbatim** from `snacc-vault/04 Arsitektur/Snacc - Spec Antarmuka Kontrak.md` and the contract code (`repos/Snacc/contracts/snacc/src`). Implementation status as of 2026-11-09: `VC-001..006` merged; access matrix verified against contracts main (SEC-113).
 
-Verified against contracts main @ cabe745 (contracts origin/main, contracts PR #21 merge). Every `pub fn` in `contracts:snacc/src/lib.rs` at that revision has a row below; line numbers are contracts:snacc/src/lib.rs at that revision.
+Verified against contracts main @ cabe745 (contracts origin/main, contracts PR #21 merge). Every `pub fn` in `contracts:snacc/src/lib.rs` at that revision has a row below; line numbers are contracts:snacc/src/lib.rs at that revision. Contracts PR #22 (NEP-141 `ft_mint` event, 2026-11-09) shifted later definitions by about 14–18 lines, so search by function name; the method names, access rules and error codes were re-checked against current contracts main.
 
 ## 1. The method access matrix
 
@@ -74,7 +74,7 @@ Verified against contracts main @ cabe745 (contracts origin/main, contracts PR #
 | `nft_resolve_transfer` (`#[private]`, contracts:snacc/src/lib.rs:3432) | private callback — only the contract itself | ✅ |
 | `get_inventory` (view, contracts:snacc/src/lib.rs:3483) | anyone (view) | ✅ |
 | `get_global_solvency` (view, contracts:snacc/src/lib.rs:3496) | anyone (view) | ✅ |
-| `advance_sandbox_clock` (contracts:snacc/src/lib.rs:249) | the contract owner (`ERR_NOT_CONTRACT_OWNER`); non-mainnet sandbox only — demo/test | ✅ |
+| `advance_sandbox_clock` (contracts:snacc/src/lib.rs:249) | the contract owner (`ERR_NOT_CONTRACT_OWNER`); `.testnet` contract accounts only (`is_sandbox_network`; the flag is off otherwise) — demo/test | ✅ |
 | `get_sandbox_clock` (view, contracts:snacc/src/lib.rs:278) | anyone (view) | ✅ |
 
 > Honest note: the `ft_burn` row was previously this document's finding (per `SEC-101`, `V-01`: every cash withdrawal/touch must have `predecessor == owner`); the contract now enforces it (see `fn ft_burn` in `contracts:snacc/src/lib.rs` — it asserts the caller against the Strain owner, error `ERR_NOT_OWNED_BY_CALLEE`). There is no admin treasury withdrawal function (`I-05`).

@@ -9,8 +9,8 @@
 ```json
 {
   "strain_id": 1,
-  "owner_id": "alkemis.near",
-  "vault_subaccount": "s-1.snacc-v001.near",
+  "owner_id": "alkemis.testnet",
+  "vault_subaccount": "s-1.snacc-v001.testnet",
   "vitality": 8500,
   "efficiency_bps": 10000,
   "bmr_per_hour": 100,
@@ -87,7 +87,7 @@ Source: Spec API Backend dan TEE §2. The implementation status in the `backend`
 | `GET /api/tee/attestation-report` | `{ model, signingAddress, gatewayAttestation, modelAttestations }` | ✅ live |
 | `POST /api/tee/evaluate-genome` | `{ chatId, signedText, signatureHex, signingAddress, mutation, redactionReport }` | ✅ live (oracle-tee) |
 
-Endpoints without active server keys respond `503` with `{ "error": "tee_not_configured" }` — they never invent data.
+"✅ live" means the route is implemented in `backend` (`src/server.ts`) and answers from contract views; it does not mean a public deployment is up. Routes and response fields were checked against `backend` main. Endpoints without active server keys respond `503` with `{ "error": "tee_not_configured" }` — they never invent data.
 
 ### 2.5 `GET /api/zones` (implemented, `EN-106`)
 
@@ -116,7 +116,7 @@ numbers illustrate the shape, they are not live data):
   "history_complete": false,
   "indexer_incomplete": true,
   "history_note": "zone_changed history only includes events captured by the poller since process start; the contract does not expose a zone history view.",
-  "contractId": "snacc-v001.near",
+  "contractId": "snacc-v001.testnet",
   "blockHeight": 555
 }
 ```
@@ -130,7 +130,7 @@ The contract emits logs with JSON carrying a `kind` field (parser in [`sdk:src/e
 {"kind":"extracted","strain_id":1,"token":"mt:spore-ignis","amount":1,"catalyst_fee":100}
 {"kind":"transmuted","strain_id":1,"burned_spores":2,"token_out":"mt:enzyme-amalgam","minted":1,"catalyst_fee":100}
 {"kind":"synthesized","strain_id":1,"token_out":"mt:elixir-homunculus","minted":1,"enzymes_burned":2,"catalyst_fee":100}
-subaccount_materialized strain_id=1 sub_account_id=s-1.snacc-v001.near
+subaccount_materialized strain_id=1 sub_account_id=s-1.snacc-v001.testnet
 ```
 
 The standard `EVENT_JSON:{standard, version, event, data:[...]}` wrapper is supported by the parser (VC-010).

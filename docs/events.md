@@ -72,7 +72,7 @@ One more log is **not** JSON: `subaccount_materialized strain_id=<id> sub_accoun
 | `signer_added` | `register_attested_signer` | `pubkey_hex`, `attested_at_sec` | — |
 | `signer_removed` | `remove_attested_signer` | `pubkey_hex` | — |
 | `npc_spores_bought` | `npc_buy_spores` | `strain_id`, `npc_id`, `amount`, `unit_price`, `total_cost` | ✅ |
-| `sandbox_clock_advanced` | `advance_sandbox_clock` (owner-only; off on mainnet) | `hours`, `sandbox_time_offset_sec` | — |
+| `sandbox_clock_advanced` | `advance_sandbox_clock` (owner-only; enabled only on `.testnet` contract accounts) | `hours`, `sandbox_time_offset_sec` | — |
 
 ## 3. Standard `NEP-141` / `NEP-171` events
 
@@ -90,7 +90,7 @@ One more log is **not** JSON: `subaccount_materialized strain_id=<id> sub_accoun
 ```json
 EVENT_JSON:{"standard":"snacc","version":"1.0.0","event":"npc_spores_bought","data":[{"kind":"npc_spores_bought","strain_id":1,"npc_id":"npc-extractor","amount":50,"unit_price":111,"total_cost":5550}]}
 EVENT_JSON:{"standard":"snacc","version":"1.0.0","event":"zone_changed","data":[{"kind":"zone_changed","from_zone":"NORMAL","to_zone":"FEVER","crucible_temp":650}]}
-EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"alkemis.near","new_owner_id":"raider.near","amount":"1000","memo":null}]}
+EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_transfer","data":[{"old_owner_id":"alkemis.testnet","new_owner_id":"raider.testnet","amount":"1000","memo":null}]}
 ```
 
 The first line is the output of the contract test `tc_npc_03_buy_spores_atomic_conservation_i15` (see `contracts:snacc/src/qa_npc_tests.rs`); the other two show the structure only.

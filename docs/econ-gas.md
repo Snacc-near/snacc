@@ -1,13 +1,14 @@
 # Snacc — Protocol Gas Profile & Epoch Loop Analysis (`ECON-107..108`)
 
-> Honesty principle (Backlog Master, `ECON-107..108`): **Transparansi penuh, tanpa klaim palsu hemat gas**. Every metric in this report is measured directly from the on-chain execution outcomes of the rehearsal transactions recorded in `evidence/gladi-manifest.json` via the explorer API. State mutations in a multi-token biological simulation naturally consume more gas than a standard fungible token transfer. `$SNACC` has no monetary value; fee figures denote protocol execution costs in yoctoNEAR and TGas.
+> Honesty principle (Backlog Master, `ECON-107..108`): **full transparency, no false claim of gas savings**. Every metric in this report is measured directly from the on-chain execution outcomes of the rehearsal transactions recorded in `evidence/gladi-manifest.json` via the explorer API. State mutations in a multi-token biological simulation naturally consume more gas than a standard fungible token transfer. `$SNACC` has no monetary value; fee figures denote protocol execution costs in yoctoNEAR and TGas.
 
 ## 1. Methodology & Data Source
 
 - **Rehearsal Manifest**: `evidence/gladi-manifest.json` (51 unique transaction hashes).
 - **Measurement Tool**: `scripts/econ-gas.mjs` + unit suite `scripts/econ-gas.test.mjs`.
 - **Baseline**: `ft_transfer` standard Fungible Token transfer (`2.833 TGas`, fee `0.000261 NEAR`).
-- **Policy Compliance**: Evaluated against policy `ADR-01` (single receipt `< 6 TGas`).
+- **Policy reference**: `ADR-01` (single receipt `< 6 TGas`). The figures below are summed over the whole receipt tree of each transaction, not per receipt, so they are not a per-receipt compliance test. Only `materialize_subaccount` (13.628 TGas, several receipts) is above 6 TGas in total.
+- **Scope**: measured on the `snacc-v001.testnet` rehearsal of 2026-11-09 (NEAR testnet); gas prices and fees on mainnet are not measured here.
 
 Across 40 measured function-call transactions, all smart contract receipts completed with 0 execution failures.
 
