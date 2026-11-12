@@ -5,7 +5,7 @@
 ## 1. Methodology & Data Source
 
 - **Rehearsal Manifest**: `evidence/gladi-manifest.json` (51 unique transaction hashes).
-- **Measurement Tool**: `scripts/econ-gas.mjs` + unit suite `scripts/econ-gas.test.mjs`.
+- **Measurement Tool**: `scripts:econ-gas.mjs` + unit suite `scripts:econ-gas.test.mjs` (in the `scripts` repo).
 - **Baseline**: `ft_transfer` standard Fungible Token transfer (`2.833 TGas`, fee `0.000261 NEAR`).
 - **Policy reference**: `ADR-01` (single receipt `< 6 TGas`). The figures below are summed over the whole receipt tree of each transaction, not per receipt, so they are not a per-receipt compliance test. Only `materialize_subaccount` (13.628 TGas, several receipts) is above 6 TGas in total.
 - **Scope**: measured on the `snacc-v001.testnet` rehearsal of 2026-11-09 (NEAR testnet); gas prices and fees on mainnet are not measured here.

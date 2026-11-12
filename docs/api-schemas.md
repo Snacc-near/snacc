@@ -87,7 +87,7 @@ Source: Spec API Backend dan TEE §2. The implementation status in the `backend`
 | `GET /api/tee/attestation-report` | `{ model, signingAddress, gatewayAttestation, modelAttestations }` | ✅ live |
 | `POST /api/tee/evaluate-genome` | `{ chatId, signedText, signatureHex, signingAddress, mutation, redactionReport }` | ✅ live (oracle-tee) |
 
-"✅ live" means the route is implemented in `backend` (`src/server.ts`) and answers from contract views; it does not mean a public deployment is up. Routes and response fields were checked against `backend` main. Endpoints without active server keys respond `503` with `{ "error": "tee_not_configured" }` — they never invent data.
+"✅ live" means the route is implemented in `backend` (`backend:src/server.ts`) and answers from contract views; it does not mean a public deployment is up. Routes and response fields were checked against `backend` main. Endpoints without active server keys respond `503` with `{ "error": "tee_not_configured" }` — they never invent data.
 
 ### 2.5 `GET /api/zones` (implemented, `EN-106`)
 
