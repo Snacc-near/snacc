@@ -28,7 +28,7 @@ Plate arena + Cell Lab bio-reactor) on NEAR testnet. Open the game at
 https://snacc-nu.vercel.app/app:
 
 - **No wallet:** `demo · simulated` (local simulation) or `live testnet` (reads from `snacc-v001.testnet`).
-- **With a NEAR testnet wallet (NEAR Connect) or email or social login (Privy):** signed game actions: hatch, feed, allocate ATP, divide, splice, extract / transmute / synthesize, buy spores, adopt / takeover / harvest, claim dividend, redeem aether, gift a Snacc, send `$SNACC`. A new account needs testnet NEAR from the [NEAR testnet faucet](https://docs.near.org/tools/faucet).
+- **With a NEAR testnet wallet (NEAR Connect) or email or social login (Privy):** signed game actions: hatch, feed, allocate ATP, divide, splice, extract / transmute / synthesize, buy spores, adopt / takeover / harvest, claim dividend, redeem aether, gift a Snacc, send `$SNACC`. A new account needs testnet NEAR from the [NEAR testnet faucet](https://docs.near.org/getting-started/faucet).
 - **On-chain proof, stated exactly:** the payloads the UI builds for hatch, feed, allocate ATP and divide were accepted by `snacc-v001.testnet` (four hashes in the README table "On-chain proof"), signed with the CLI, not through the UI wallet flow. The UI wallet flow itself has not been exercised on chain yet.
 - **Not live yet:** profiles, notifications, achievements, streaks and the starter pack are built (Supabase, `backend` repo `supabase/`) but not deployed; they are enabled after the database deploy.
 
