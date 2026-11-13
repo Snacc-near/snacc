@@ -23,8 +23,8 @@ cargo near build                               # wasm for deployment (snacc.wasm
 snacc/               # this umbrella (public)
 ├── contracts/       # Rust contract (single atomic unit: NEP-141 + NEP-171/177 + NEP-245 + mechanics)
 ├── sdk/             # lab-sdk (TS): NEP-297 event parser + SnaccClient (npm test)
-├── backend/         # indexer + /api/crucible/* (M5)
-├── frontend/        # landing + cell-cultivation game UI (M6, live at https://snacc-nu.vercel.app, game at /app)
+├── backend/         # indexer + /api/crucible/* (M5); supabase/ = profile migrations + Edge Functions (not deployed yet)
+├── frontend/        # landing + cell-cultivation game UI with wallet login and signed testnet actions (M6, live at https://snacc-nu.vercel.app, game at /app)
 ├── oracle-tee/      # NEAR AI Cloud TEE client + redaction (M3, npm test)
 ├── scripts/         # economic simulations, gladi runner/KPI, verify:thesis, demo (M7)
 ├── docs/            # architecture/security/api-schemas/glossary/quickstart
@@ -78,22 +78,26 @@ cargo near build                       # snacc.wasm
 After deploy: `init` → gladi per runbook → `migrate()` on upgrade when the state layout changed
 (controlled reset; read the related pipeline notes).
 
-## 7. Judge walkthrough — 30 seconds in the browser
+## 7. Judge walkthrough — 60 seconds in the browser
 
 Open **https://snacc-nu.vercel.app/app** for the game (the root URL is the landing page; Vercel, built from `frontend` `main`), or run it locally (`npm run dev`, then open `/app`):
 
 ```bash
 git clone https://github.com/Snacc-near/frontend.git frontend && cd frontend
-cp .env.example .env.local   # set VITE_API_BASE, or leave empty for simulated demo mode
+cp .env.example .env.local   # all variables optional; empty VITE_API_BASE = simulated demo mode only
 npm ci && npm run dev
 ```
 
+Routes: `/` landing, `/app` game, `/sign` (Privy signing page), `/terms`, `/privacy`, `/p/<account>` public profile, `/snacc/<id>` public Snacc page, anything else is a 404 page. Environment variables are documented in the `frontend` README (`VITE_API_BASE`, `VITE_PRIVY_APP_ID`, optional `VITE_PRIVY_CLIENT_ID`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+
 Then, in the browser:
 
-1. **Open** — the isometric Colony Plate arena loads in `demo · simulated` mode.
+1. **Open** — the isometric Colony Plate arena loads in `demo · simulated` mode (no wallet needed).
 2. **Tap a cell** — a microscope-iris transition zooms into the Cell Lab bio-reactor.
 3. **Produce ATP** — the ATP synthase turbine spins (3 ATP per rotor turn); the Krebs wheel and the electron-transport cable car run the rest of the cycle.
-4. **Attest (TEE)** — the mechanism plays only; nothing is submitted from the UI.
-5. **Switch to live** — `live testnet` shows the 9 testnet strains, with values straight from the API and `—` wherever data is missing (never a fabricated number).
-6. **Read the honesty labels** — `demo · simulated` in demo, `live · testnet reads only` in live, and `preview only — on-chain transactions need a wallet` next to every action key in live mode.
-7. **Optional: tool windows** — the toolbar opens NPC merchants (contract views `get_npc` / `npc_quote_spores` in live mode), a 1Click swap quote preview, the Great Feast leaderboard, the thesis evidence log (testnet rehearsal 2026-11-09 with tx links), a local recipe search and a local guest label. Fixture values carry a `SIMULATION` chip.
+4. **Attest (TEE)** — the mechanism plays only; the Cell Lab keycaps never submit a transaction, and no signed action exists for the TEE flow in the UI.
+5. **Switch to live** — `live testnet` shows the strains of `snacc-v001.testnet`, with values straight from the API and contract views and `—` wherever data is missing (never a fabricated number).
+6. **Read the honesty labels** — `demo · simulated` in demo, `live · testnet reads only` in live without a wallet, `live · testnet · wallet connected` with one, and `preview only — on-chain transactions need a wallet` next to the Cell Lab keycaps in live mode.
+7. **Optional: connect a wallet** — `connect wallet` opens NEAR Connect (testnet wallets such as Meteor or Intear) and, in the production build, email or social login (Privy). A new account needs testnet NEAR from the [NEAR testnet faucet](https://docs.near.org/getting-started/faucet). The dock keys (Hatch, Feed, Allocate ATP, Extract, Transmute, Synthesize, Divide, Harvest) and the `Actions` key then open signing windows; the first signed call also registers the account (`storage_deposit`). The result panel shows the tx hash with a nearblocks link or the contract error in plain English. **Status:** the payloads of hatch, feed, allocate ATP and divide are proven on chain (CLI-signed; the four hashes are in the README table "On-chain proof"); a transaction signed through the UI wallet flow has not been recorded yet.
+8. **Optional: tool windows** — the toolbar opens NPC merchants (contract views `get_npc` / `npc_quote_spores` in live mode; buying is the signed `npc_buy_spores` in the Actions window), a 1Click swap quote preview, the Great Feast leaderboard, the thesis evidence log (testnet rehearsal 2026-11-09 with tx links), a local recipe search and a local guest label. Fixture values carry a `SIMULATION` chip.
+9. **Not live yet** — player profiles, notifications, achievements, streaks and the starter pack are built but their Supabase database is not deployed, so they are hidden in production.
