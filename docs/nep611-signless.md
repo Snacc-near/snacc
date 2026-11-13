@@ -4,6 +4,9 @@
 > (a function-call access key cannot carry a deposit) means **deposit-bearing actions still go
 > through the wallet**; signless is only for deposit-0 actions. A relayer / gas-station for deposit-bearing
 > actions is a **post-hackathon plan, not an existing feature** (see §5).
+> Update 2026-11-14: the app now has its own opt-in one-tap play (a separate implementation from the
+> SDK's `SessionKeyManager`, described in §3). §§1-2 describe the SDK design; the app's method list is a
+> subset of it, and deposit-bearing actions still go through the wallet.
 > `$SNACC` testnet has no monetary value.
 
 ## 1. The protocol constraint (the core decision)
@@ -45,7 +48,7 @@ What is **not** claimed: "hatching without a NEAR balance", "hatching without a 
 without popups". Hatching and the production chain (`extract_spores` → `transmute_spores_to_enzyme` →
 `synthesize_elixir`) carry deposits and still need the wallet.
 
-## 3. The status as of 2026-11-08 (honest)
+## 3. The status (SDK part as of 2026-11-08, frontend part updated 2026-11-14; honest)
 
 - SDK: `SessionKeyManager` (`createSession`, `call`, `asTransport`, `status`, `revoke`, `forget`),
   `fullAccessRegistrar` (for tests/backend), `KeyRegistrar` (the interface for wallets) — present in
@@ -57,7 +60,13 @@ without popups". Hatching and the production chain (`extract_spores` → `transm
   in `evidence/`, so no claim leans on it. The method list in that spike
   (`incubate_strain`, `feed_strain`) comes from the early draft; `incubate_strain` cannot
   be called through that key because it is deposit-bearing.
-- Frontend: wiring `SessionKeyManager` into the UI does not exist yet (the work order: FE last).
+- Frontend (updated 2026-11-14): the app has its own **one-tap play** (opt-in, Settings → One-tap play; frontend PR #32, merged 2026-11-13 and present in the production build at snacc-nu.vercel.app). It is a separate implementation in `frontend` (`src/chain/oneTap.ts`, `oneTapKeys.ts`, `oneTapSession.ts`); it does **not** use the SDK's `SessionKeyManager`. What it does:
+  - The wallet adds ONE function-call access key to the player's own account: receiver `snacc-v001.testnet`, gas allowance 0.25 NEAR, and only the 8 deposit-free game methods the app sends: `allocate_atp`, `claim_industrial_dividend`, `divide_strain`, `feed_strain`, `harvest_starving_strain`, `npc_buy_spores`, `splice_strains`, `synthesize_and_redeem_aether` (`ONE_TAP_METHODS`, derived from `CONTRACT_METHOD_DEPOSIT`). This is a subset of the SDK's `SIGNLESS_METHODS` in §1.
+  - Those transactions are signed in the browser with Web Crypto. The private key is a non-extractable key in IndexedDB, with a localStorage fallback only when IndexedDB cannot hold one. It is never sent anywhere.
+  - Every action that attaches NEAR stays in the wallet: hatch (`incubate_strain`), `storage_deposit`, the catalyst fees (`extract_spores`, `transmute_spores_to_enzyme`, `synthesize_elixir`), the NEP-141/NEP-171 transfers and all market calls. So do `adopt` and `hostile_takeover_splice`: they attach no NEAR, but they pay another player, so a script on the site must not be able to run them with a popup-free key. In §1's table these two are listed under the SDK's deposit-0 methods; the app deliberately keeps them in the wallet.
+  - If one-tap cannot be used (no key, key gone from the account, too little allowance, RPC unreachable, transaction invalid), the action falls back to one wallet popup. Once a broadcast may have reached the network, the app reports "not confirmed" with the locally computed hash and does not ask the wallet again, so an action is never sent twice.
+  - The player's own account pays the gas, capped by the key's allowance. There is no relayer and no gas station; hatching without any NEAR is the post-hackathon plan in §5, not built.
+  - **Not verified:** the covering tests use a fake RPC and a fake wallet. No one-tap transaction has been sent on testnet yet, and no real wallet has been seen accepting the `AddKey`.
 - `@near-relay/sdk` / `near-relay`: present in the registry but empty/stale — not used.
 - Keypom: the v2 contract is live on testnet (`v2.keypom.testnet`, RPC-verified) — a drop-based option,
   the spike `scripts/keypom-drop-spike.mjs` (RES-110; the drop is not yet used in the demo).

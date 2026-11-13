@@ -17,8 +17,14 @@ Algorithmic central bank CrucibleTemp: burn 3.5% of fees in Fever, subsidize 2% 
   synthesize, npc_buy_spores, adopt/takeover/harvest, claim dividend, redeem aether, nft_transfer, ft_transfer).
 - On-chain proof of the UI's payloads: 4 testnet txs (hatch, feed, allocate_atp, divide) listed in the README
   table "On-chain proof". They were signed with the CLI, not through the UI wallet flow; that flow has not been
-  exercised on chain yet. Player profiles, notifications, achievements and the starter pack (Supabase, backend
-  repo supabase/) are built but not deployed yet.
+  exercised on chain yet. Player profiles, notifications, achievements, quests and other social features
+  (Supabase, backend repo supabase/) are deployed and live as off-chain data; the starter pack is deployed but not
+  enabled (no faucet secret yet) and account deletion is not live.
+- One-tap play (opt-in, Settings): one wallet approval adds a function-call key for 8 deposit-free game methods on
+  snacc-v001.testnet; hatching and every action that attaches NEAR (and adopt / hostile_takeover_splice) still use the
+  wallet. Not verified: no one-tap tx sent on testnet yet, no real wallet seen accepting the key.
+- Market (testnet, snacc-market.testnet): the contract was exercised with CLI-signed txs (README "On-chain proof: the
+  market contract"); the UI Market window with a real wallet is not verified.
 - Product overview: https://github.com/Snacc-near/snacc/blob/main/docs/partner-onboarding.md
 - Working rules: https://github.com/Snacc-near/snacc/blob/main/CLAUDE.md
 - Repos: https://github.com/Snacc-near/{snacc,contracts,oracle-tee,sdk,backend,frontend,scripts}
