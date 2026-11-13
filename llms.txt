@@ -11,6 +11,14 @@ Algorithmic central bank CrucibleTemp: burn 3.5% of fees in Fever, subsidize 2% 
 (capped 5%/epoch), no admin withdrawal. Secret AI recipes evaluated in NEAR AI Cloud TEE
 (z-ai/glm-5.3-flash), verified on-chain via env::sha256 + env::ed25519_verify - no trusted oracle.
 
+- Play it (NEAR testnet only): https://snacc-nu.vercel.app (landing), https://snacc-nu.vercel.app/app (game).
+  Demo mode needs no wallet; live mode reads snacc-v001.testnet; a NEAR testnet wallet (NEAR Connect) or
+  Privy email login signs the game actions (hatch, feed, allocate_atp, divide, splice, extract/transmute/
+  synthesize, npc_buy_spores, adopt/takeover/harvest, claim dividend, redeem aether, nft_transfer, ft_transfer).
+- On-chain proof of the UI's payloads: 4 testnet txs (hatch, feed, allocate_atp, divide) listed in the README
+  table "On-chain proof". They were signed with the CLI, not through the UI wallet flow; that flow has not been
+  exercised on chain yet. Player profiles, notifications, achievements and the starter pack (Supabase, backend
+  repo supabase/) are built but not deployed yet.
 - Product overview: https://github.com/Snacc-near/snacc/blob/main/docs/partner-onboarding.md
 - Working rules: https://github.com/Snacc-near/snacc/blob/main/CLAUDE.md
 - Repos: https://github.com/Snacc-near/{snacc,contracts,oracle-tee,sdk,backend,frontend,scripts}

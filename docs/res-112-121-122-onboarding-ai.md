@@ -6,6 +6,7 @@
 - `$SNACC` on testnet has no monetary value. Volatility is an on-chain game mechanic, not a promise of return.
 - Offline and demo paths never fabricate transaction hashes. A feature with no live evidence is labelled as local, planned or not verified below.
 - Wording rule: Snacc is an on-chain economic game; this page uses no financial-product language.
+- Scope note (2026-11-13): this page is about the **guest label** only. NEAR wallet login (NEAR Connect, plus optional email or social login through Privy) and the signed game actions were added to the frontend later; see "What's in the app" in the umbrella `README.md`. The guest label itself is unchanged: local only, nothing signed.
 
 ## At a glance
 

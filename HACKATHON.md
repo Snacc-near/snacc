@@ -1,6 +1,6 @@
 # Snacc — NEAR Hackathon submission notes
 
-Status: evidence pack written; the frontend is built and runs locally (not publicly deployed yet), the demo video and the submission form are still pending (see `docs/evidence-pack.md` §7).
+Status: evidence pack written; the frontend is deployed at https://snacc-nu.vercel.app (NEAR testnet only; game at `/app`); the demo video and the submission form are still pending (see `docs/evidence-pack.md` §7). The player-profile part (Supabase) is built but not deployed yet.
 
 - **Project:** Snacc (`$SNACC`) — *NFTs that eat a memecoin. Feed your Snacc or it gets snacked.*
 - **Tracks:** `memecoins` + `nfts`. Other tracks are listed in the evidence pack only where a testnet tx hash or a view call backs them.
@@ -21,19 +21,28 @@ npm run verify:thesis   # falsifiers F-01..F-03 (F-01/F-02 read public RPCs, F-0
 
 Both commands read only files under `evidence/` and public RPCs.
 
-## Frontend (local only — not publicly deployed)
+## Frontend (deployed: https://snacc-nu.vercel.app)
 
-The frontend is a cell-cultivation game (isometric Colony Plate arena + Cell
-Lab bio-reactor). Run it locally:
+The frontend is a landing page plus a cell-cultivation game (isometric Colony
+Plate arena + Cell Lab bio-reactor) on NEAR testnet. Open the game at
+https://snacc-nu.vercel.app/app:
+
+- **No wallet:** `demo · simulated` (local simulation) or `live testnet` (reads from `snacc-v001.testnet`).
+- **With a NEAR testnet wallet (NEAR Connect) or email or social login (Privy):** signed game actions: hatch, feed, allocate ATP, divide, splice, extract / transmute / synthesize, buy spores, adopt / takeover / harvest, claim dividend, redeem aether, gift a Snacc, send `$SNACC`. A new account needs testnet NEAR from the [NEAR testnet faucet](https://docs.near.org/tools/faucet).
+- **On-chain proof, stated exactly:** the payloads the UI builds for hatch, feed, allocate ATP and divide were accepted by `snacc-v001.testnet` (four hashes in the README table "On-chain proof"), signed with the CLI, not through the UI wallet flow. The UI wallet flow itself has not been exercised on chain yet.
+- **Not live yet:** profiles, notifications, achievements, streaks and the starter pack are built (Supabase, `backend` repo `supabase/`) but not deployed; they are enabled after the database deploy.
+
+Run it locally:
 
 ```bash
 git clone https://github.com/Snacc-near/frontend.git frontend && cd frontend
-cp .env.example .env.local   # set VITE_API_BASE, or leave empty for simulated demo mode
+cp .env.example .env.local   # all variables optional; empty VITE_API_BASE = simulated demo mode only
 npm ci && npm run dev
 ```
 
-See the `Snacc-near/frontend` README for screens, the organelle →
-contract-method map, and the 30-second walkthrough in `docs/quickstart.md` here.
+See the `Snacc-near/frontend` README for routes, environment variables, the
+source layout, the organelle → contract-method map, and the 60-second
+walkthrough in `docs/quickstart.md` here.
 
 ## Honesty notes
 
