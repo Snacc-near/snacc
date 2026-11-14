@@ -101,7 +101,7 @@ flowchart LR
 | 2 | `transmute_spores_to_enzyme(strain_id, spores_to_burn, snacc_catalyst_fee)` | Fermenter | 2 `$ATP` | Burns an even number of spores and mints enzymes, times `efficiency_bps / 10000`. Which enzyme follows from the stock: amalgam from ignis, then redactase from ignis and lumin, then synthase from cryo |
 | 3 | `synthesize_elixir(strain_id, elixir_type, enzymes_to_burn, snacc_catalyst_fee)` | Synthesizer | 3 `$ATP` | Burns enzymes in whole batches and mints 1 elixir per batch. Homunculus: 2 amalgam and 1 synthase. Homeostasis: 1 amalgam and 1 redactase. Aether: 2 amalgam and 1 synthase, and only after a successful TEE mutation (otherwise `ERR_REQUIRES_TEE_ATTESTATION`) |
 
-Every stage also pays a `$SNACC` catalyst fee that flows into the central bank, and every successful stage action restores 500 vitality and restarts the hunger clock.
+Every stage also pays a catalyst fee that flows into the central bank. The fee is **attached NEAR** equal to the argument `snacc_catalyst_fee`, and the caller chooses the amount. Every successful stage action restores 500 vitality and restarts the hunger clock.
 
 What the elixirs do on chain today:
 

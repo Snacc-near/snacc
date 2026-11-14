@@ -1,0 +1,92 @@
+---
+title: Profiles, quests and seasons
+description: The off-chain player features on Supabase. Usernames, NEAR sign-in, achievements, daily quests with XP and levels, weekly seasons, notifications and history views. They do not change what the contract proves.
+icon: Trophy
+---
+
+Around the on-chain game there is a layer of player features that lives on Supabase. It stores profile data, not game state. **Nothing here changes what the contract proves**, no chain hash applies to it, and XP, levels, quests, seasons and badges are cosmetic: no token, no NEAR, no money value.
+
+This page follows the status table in the [README of the umbrella repo](https://github.com/Snacc-near/Snacc#whats-in-the-app). Where this page and the README disagree, the README wins.
+
+## Status
+
+| Feature | Status |
+| --- | --- |
+| Player profiles with usernames, "Save progress" NEAR sign-in, achievements, feed streaks, in-app notifications, extra leaderboards | Live (Supabase). A full sign-in with a real wallet is **not verified** |
+| Daily quests with XP and levels, weekly leaderboard seasons with a hall of fame | Live (Supabase), off-chain data |
+| Snacc detail view (lineage tree and feed history) and the graveyard of dead Snaccs | Live, read from an event history |
+| Invite links `?ref=<account>` with a cosmetic "Recruiter" badge | Live, off-chain data |
+| Web Push on this device (opt-in) | Live, opt-in. Real push delivery to a device is **not verified** |
+| Name moderation, admin announcements, "Download my data", usage telemetry that respects opt-out and Do Not Track | Live |
+| Testnet starter pack | **Deployed, not enabled**: it answers `not_configured` until a faucet secret is set |
+| Account deletion ("Delete my profile") | **Not live**: its database migration is not applied yet |
+
+## How a profile is made
+
+{/* Diagram checked against: backend supabase/README.md (HTTP contracts: near-auth, record-tx; Tables and RLS; Quests, XP, level and seasons), umbrella README (status table);
+    the vault has no note on these features (they were built after the vault specification). */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor P as Player
+  participant A as App
+  participant W as Wallet
+  participant F as Supabase Edge Functions
+  participant DB as Supabase Postgres
+  participant N as NEAR RPC
+  P->>A: Save progress
+  A->>F: near-auth /challenge with the account id
+  F-->>A: nonce and message, valid 5 minutes
+  A->>W: sign the message (NEP-413)
+  W-->>A: signature
+  A->>F: near-auth /verify
+  F->>N: is this key a full-access key of the account?
+  N-->>F: yes
+  F->>DB: find or create the user and the profile
+  F-->>A: one-time token, signed in
+  P->>A: play, send a transaction
+  A->>F: record-tx with the transaction hash
+  F->>N: read the transaction, check signer and receiver
+  F->>DB: insert one activity row, award achievements
+```
+
+- **Sign-in.** `near-auth` gives you a challenge, you sign it with your wallet, and the function checks the NEP-413 signature. The key must be a **full-access key** of the account. A wallet that signs with a function-call key is refused with `not_full_access_key`, because such a key can belong to a third-party app.
+- **Activity.** After a transaction, the app sends its hash to `record-tx`. The function reads the transaction from RPC and records it only if the signer is you, the receiver is the Snacc contract, the status is a success and it is a function call. The call is idempotent on the hash.
+- **Profile data.** A username is 3 to 20 characters of `a-z`, `0-9` and `_`. Reserved and blocked words are refused. Row-level security is on for every table, and every table and view name ends in `_snacc`.
+
+## Achievements and streaks
+
+Achievements are awarded by a database trigger from the recorded activity: for example a first hatch, a first feed, ten feeds, a 3 and 7 day feed streak, a colony of five, and quest milestones. A feed streak counts consecutive days with at least one `feed_strain`.
+
+## Daily quests, XP and levels
+
+Everything is a pure function of the public activity rows that `record-tx` writes.
+
+{/* Diagram checked against: backend supabase/README.md section "Quests, XP, level and seasons" and the migration 20261113000004_snacc_quests_seasons.sql (xp, quest catalog, season functions). */}
+
+```pele
+flowchart LR
+  TX["Chain transaction"] -->|"record-tx verifies it"| ACT[("activity_snacc")]
+  ACT --> XPD["xp_days_snacc<br/>XP per day"]
+  ACT --> QD["quest_days_snacc<br/>3 quests per player per day"]
+  QD -->|"bonus XP once per completed quest"| XPD
+  XPD --> PX["player_xp_snacc<br/>total XP and level"]
+  XPD --> SL["season_leaderboard_snacc<br/>weekly ranking"]
+  SL --> HOF["hall_of_fame_snacc<br/>top 3 of every finished season"]
+```
+
+- **XP per action.** For example `incubate_strain` 25, `splice_strains` 20, `divide_strain` 15, `adopt` 15, `feed_strain` 10, `extract_spores` 6, `npc_buy_spores` 4, and 2 for any other recorded method. Only the first 40 actions per player per UTC day earn XP.
+- **Level.** The XP needed for level L is `50 * (L - 1) * L`: level 2 at 100, level 3 at 300, level 5 at 1000, level 10 at 4500. There is no cap.
+- **Quests.** Three per player per UTC day, picked from a fixed catalog of ten (for example "Snack time": feed once for 10 bonus XP, "New arrival": hatch once for 30, "Merchant visit": buy spores from an NPC for 15). The pick is stable all day and differs between players. A completed quest adds its bonus XP once. They reset at 00:00 UTC.
+- **Seasons.** A season runs Monday 00:00 UTC to the next Monday. Season 1 started on 2026-11-02. The leaderboard ranks players by the XP of the season's days, and ties are broken by completed quests. The **hall of fame** keeps the top 3 of every finished season.
+
+## History views
+
+An Edge Function, `chain-index`, runs every 10 minutes and indexes the contract's transactions into one table of `NEP-297` events. Three views are built on it: the **lineage** of a Snacc (divided, spliced into, taken over), its **history** (events with the headline amount) and the **graveyard** (dead Snaccs with who, when and why). They are what the Snacc detail view reads. They are derived from public chain data, and they can lag behind the chain.
+
+## Privacy and limits
+
+- The data is the profile, the activity, achievements, notifications and notification settings, follows, an optional referral, a starter claim, and telemetry that respects opt-out and Do Not Track. "Download my data" exports it as one JSON document.
+- The Supabase project URL and its publishable key are in the production build. That is public by design, and row-level security guards the data. Secrets (service keys, the faucet key) are never in the repos.
+- Nothing in this layer is evidence for a game claim. For the Edge Functions and their status, see [Backend API](/docs/backend-api).

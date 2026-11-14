@@ -1,0 +1,69 @@
+---
+title: Roadmap
+description: What comes after the hackathon, marked as plans. Verification gaps to close, features that are not built, and the gates before anything could move beyond testnet. Plans are not promises.
+icon: Milestone
+---
+
+This page lists what is **not done yet**. Every item here is a plan or a gap, not a feature. Phases are an order of work, not a schedule, and any item can change or be cut. For what exists today, see the status table in the [README of the umbrella repo](https://github.com/Snacc-near/Snacc#whats-in-the-app) and the [Evidence](/docs/evidence) page. NEAR **testnet only**, and `$SNACC` on testnet has no monetary value.
+
+{/* Diagram checked against: umbrella docs/roadmap-post-hackathon.md (phases and non-claims), README (status table: not verified, not enabled, not live), docs/evidence-pack.md section "Not yet proven live",
+    contracts snacc/src/lib.rs (the TEE trait whitelist note), vault note "Snacc - Deployment Testnet dan Mainnet" (older). Every node is a plan or a gap. */}
+
+```pele
+flowchart LR
+  NOW(["Today: testnet, live in the app"]) --> P1
+  subgraph P1["Phase 1: close the gaps"]
+    A1["Try the wallet flow, one-tap, market<br/>and push with real wallets"]
+    A2["Enable the starter pack,<br/>apply the account deletion migration"]
+    A3["Fix the SDK id encoding<br/>and its event list"]
+    A4["Reproducible build<br/>and refreshed evidence"]
+  end
+  P1 --> P2
+  subgraph P2["Phase 2: before any value is at stake"]
+    B1["Observe real-time play<br/>without the sandbox clock"]
+    B2["External contract audit"]
+    B3["Verify the enclave quote on chain"]
+    B4["Hatch without NEAR:<br/>relayer or meta-transactions"]
+  end
+  P2 --> P3
+  subgraph P3["Phase 3: bets, only if the earlier phases hold"]
+    C1["Feast rewards, two-way NPC trade"]
+    C2["TEE trait whitelist"]
+    C3["Paid API experiments"]
+  end
+```
+
+## Phase 1: close the known gaps
+
+These are things that exist in the code but are not shown to work end to end.
+
+- **Exercise the app with real wallets.** The wallet flow, one-tap play, the Market window, a full NEAR sign-in for profiles and real push delivery have no real-wallet evidence yet. Each result would be recorded with a hash.
+- **Enable the starter pack and account deletion.** The `starter-pack` function needs its faucet secret, and account deletion needs its database migration applied. Until then both are described as not enabled and not live.
+- **Fix the SDK.** Send `u64` ids as numbers, and teach the event parser the three events it does not know (`signer_added`, `signer_removed`, `sandbox_clock_advanced`). See [SDK](/docs/sdk).
+- **A reproducible build and a refreshed evidence run.** Build the contract in a reproducible way, and re-run the evidence after changes to the contract, so that the on-chain code hash and the evidence agree again (see the code hash note in [Evidence](/docs/evidence)).
+- **The long-term indexer.** The event poller works, but the choice of a long-term indexer engine is open.
+
+## Phase 2: before any value could be at stake
+
+- **Real-time operation.** Run the game without the sandbox clock and write down what happens over real days: the hunger windows, the epoch close and several dividend epochs with several contributors.
+- **An external audit** of the contracts, covering the economic rules, the TEE paths and the buyout races. None has been done.
+- **Verify the enclave hardware quote on chain** (for example Intel TDX), so that registering a signer key is not the only trust step. Today this is not built.
+- **Hatching without NEAR.** A relayer or meta-transactions could pay for a first hatch. It is not built, and one-tap play does not provide it, because a function-call key cannot attach NEAR.
+- **Key management drills,** including rotating the TEE signer key on testnet first.
+- **A mainnet deployment** is not planned with a date. Nothing is deployed there, and any move beyond testnet would follow the steps above.
+
+## Phase 3: product bets
+
+These are ideas, to be considered only if the earlier phases hold:
+
+- **Great Feast rewards.** Today the feast only grades the epoch. A reward for a Goldilocks epoch is a design idea (see [The Great Feast and the Industrial Dividend Pool](/docs/feast-dividend)).
+- **Two-way NPC trade and restocking.** Today the NPCs only sell spores and never restock (see [The NPC merchants](/docs/npcs)).
+- **A TEE trait whitelist.** Today a `phenotype_trait` is only length-checked (see [TEE verification](/docs/tee)).
+- **Paid API tiers and agent frameworks** for the NPC reasoning endpoint are optional experiments, to be judged on their own merits.
+- **A fuller backend API.** The read-only API could grow, while writes stay in the player's wallet.
+- **A public `NEP-245` interface** for molecules is not built. Molecules stay internal to the contract today, and there is no `NEP-245` compliance claim.
+
+## What this page does not say
+
+- No mainnet date, no token distribution and no monetary expectation.
+- Nothing on this page exists yet. If a plan ships, it moves into the other pages with a transaction hash.

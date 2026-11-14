@@ -1,0 +1,252 @@
+---
+title: Contract reference
+description: Every public method of the Snacc contract snacc-v001.testnet with its arguments, deposit and gas, the NEP-297 events and the error codes, written by hand from the contract source.
+icon: Code
+---
+
+This is the reference for the contract `snacc-v001.testnet` (Rust, `near-sdk` 5.29.1, in the [`contracts`](https://github.com/Snacc-near/contracts) repo, folder `snacc/`). Names are copied from `lib.rs`, `state.rs` and `events.rs`. NEAR **testnet only**. The marketplace has its own reference on the [Marketplace](/docs/marketplace) page.
+
+How to read the tables:
+
+- **JSON types.** Ids, epochs, counts and levels (`strain_id`, `epoch`, `expected_target_nonce`, `buy_amount`, `spores_to_burn`, `initial_spores` and so on) are `u64` or `u8` and must be sent as JSON **numbers**. The contract refuses a string there: a view call with `{"strain_id":"1"}` answers `invalid type: string "1", expected u64` (checked against the live contract on 2026-11-14 with a read-only view call). Amounts and balances (`U128`: `amount`, `initial_snacc_stake`, `snacc_catalyst_fee`, `from_index`) are **decimal strings**, because a JSON number loses precision above 2^53.
+- **Deposit.** What you must attach. `none` means the method is not `#[payable]` or ignores a stray deposit, and the app sends 0. `fee` means attached NEAR equal to the argument `snacc_catalyst_fee`. `1 yocto` means exactly 1 yoctoNEAR.
+- **Gas.** The prepaid gas the app attaches, in TGas, read from the frontend's `GAS` table. A dash means the app never sends that method. The only gas rule in the contract is the one on `nft_transfer_call`.
+- **Who.** `owner` is the owner of the Snacc named in the call, not the contract owner.
+
+## Who may call what
+
+{/* Diagram checked against: contracts snacc/src/lib.rs (assert_strain_owner, ERR_NOT_OWNED_BY_CALLEE, ERR_NOT_CONTRACT_OWNER, #[private] callbacks, the permissionless methods);
+    vault notes "Snacc - Spec Antarmuka Kontrak" (method groups; the code is the source of truth where they differ). */}
+
+```pele
+flowchart TB
+  subgraph any["Anyone"]
+    A1["harvest_starving_strain<br/>advance_epoch<br/>storage_deposit and views"]
+  end
+  subgraph player["A player on a Snacc they own"]
+    P1["feed_strain, allocate_atp, divide_strain<br/>extract_spores, transmute_spores_to_enzyme<br/>synthesize_elixir, splice_strains, conjugate_traits<br/>npc_buy_spores, ft_burn, materialize_subaccount<br/>commit_genome_experiment, apply_tee_mutation_zero_trust<br/>synthesize_and_redeem_aether, claim_industrial_dividend"]
+  end
+  subgraph pay["A player paying from a Snacc they own"]
+    P2["adopt, hostile_takeover_splice<br/>(the target belongs to someone else)"]
+  end
+  subgraph co["The contract owner (set at deploy)"]
+    O1["register_attested_signer<br/>remove_attested_signer<br/>advance_sandbox_clock (testnet only)"]
+  end
+  subgraph self["The contract itself"]
+    S1["migrate<br/>on_subaccount_created, on_transfer_call<br/>nft_resolve_transfer"]
+  end
+```
+
+## Hatch and account
+
+| Method | Arguments | Deposit | Gas | Who | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `incubate_strain` | `role`, `initial_snacc_stake`, `initial_spores` | the stake | 100 | anyone | Returns the new `StrainVesselView`. `role` is `Extractor`, `Fermenter` or `Synthesizer`. With NEAR attached, `initial_snacc_stake` must be `"0"` or equal to the deposit, else `ERR_STAKE_DEPOSIT_MISMATCH`: 80% becomes the stomach and 20% the Pantry, and the stake is minted as new `$SNACC` supply (event `ft_mint`). With no NEAR attached, the stake is debited from the caller's `$SNACC` account balance instead. `initial_spores` is the number of `mt:spore-ignis` the new Snacc starts with: the contract applies no cap and no price to it, and the app sends 10 |
+| `materialize_subaccount` | `strain_id` | at least 0.02 NEAR | - | owner | Creates the keyless sub-account `s-<id>-<tag>.snacc-v001.testnet` and locks the Snacc (`pending_callbacks`) until the callback runs. A failed creation refunds the deposit. `<tag>` is the block height of the last `new` or `migrate` |
+| `storage_deposit` | `account_id?`, `registration_only?` | at least 5 milliNEAR for the first registration | 30 | anyone | `NEP-145`. Registers an account so it can receive `ft_transfer`. With `registration_only` the excess is refunded |
+| `storage_withdraw` | `amount?` | none | - | registered | Withdraws the excess deposit. The 5 milliNEAR minimum stays locked while the account holds `$SNACC` |
+| `storage_unregister` | `force?` | 1 yocto | - | registered | Removes the registration. With `$SNACC` still on the account it needs `force: true` |
+| `storage_balance_of`, `storage_balance_bounds` | `account_id` / none | view | - | anyone | `StorageBalance { total, available }` or null; the bounds are min 5 milliNEAR and no max |
+
+## Feeding and production
+
+| Method | Arguments | Deposit | Gas | Who | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `feed_strain` | `strain_id`, `amount` | none | 100 | owner | Takes a fee of up to `amount` from the stomach (bursts, rescue feeding and dormancy can lower it) and runs it through the central bank, mints `$ATP`, sets vitality to effective vitality + 500. Returns the view. Event `fed`. Fails if starving |
+| `allocate_atp` | `strain_id`, `mitokondria`, `nukleus`, `lisosom` | none | 50 | owner | Sets each organelle to the given **level** (0 to 5, `ERR_ORGANEL_LEVEL_MAX`). Costs 1 `$ATP` per level gained. Once per epoch (`ERR_ALREADY_ALLOCATED`) |
+| `extract_spores` | `strain_id`, `spore_type`, `snacc_catalyst_fee` | fee | 100 | owner | Extractor role, 1 `$ATP`. `spore_type` is `mt:spore-ignis`, `mt:spore-cryo` or `mt:spore-lumin`. Mints 1 spore per call |
+| `transmute_spores_to_enzyme` | `strain_id`, `spores_to_burn`, `snacc_catalyst_fee` | fee after the diet discount | 100 | owner | Fermenter role, 2 `$ATP`. `spores_to_burn` must be even and above 0 (`ERR_RECIPE_NOT_MET`). The attached deposit must equal the fee after the zone discount (`fee * (10000 - diet_bps) / 10000`) |
+| `synthesize_elixir` | `strain_id`, `elixir_type`, `enzymes_to_burn`, `snacc_catalyst_fee` | fee | 100 | owner | Synthesizer role, 3 `$ATP`. `elixir_type` is `mt:elixir-homunculus`, `mt:elixir-homeostasis` or `mt:elixir-aether`. `enzymes_to_burn` must be a whole number of batches (3 for homunculus and aether, 2 for homeostasis). Aether needs a TEE `phenotype_trait` |
+
+All three stage methods also fail with `ERR_STRAIN_STARVING`, `ERR_ROLE_NOT_ALLOWED` or `ERR_NOT_ENOUGH_ATP`, restore 500 vitality and restart the hunger clock. The catalyst fee is chosen by the caller, and the contract sets no minimum (the app defaults to 0.001 NEAR).
+
+## Colony
+
+| Method | Arguments | Deposit | Gas | Who | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `divide_strain` | `strain_id` | none | 100 | owner | Returns `(parent view, child view)`. See [Colony actions](/docs/colony) |
+| `splice_strains` | `dominant_id`, `absorbed_id` | none | 150 | owner of both | Returns the dominant view |
+| `adopt` | `target_id`, `raider_strain_id`, `expected_target_nonce` | none | 150 | owner of the raider | Returns the target view. `expected_target_nonce` is the target's `state_nonce` as a number |
+| `hostile_takeover_splice` | `raider_strain_id`, `distressed_target_id`, `expected_target_nonce` | none | 150 | owner of the raider | Returns `(payment, raider view)` |
+| `harvest_starving_strain` | `target_id` | none | 100 | anyone | Returns `(bounty, recovery)` as strings |
+| `conjugate_traits` | `from_strain_id`, `to_strain_id`, `phenotype_trait` | none | - | owner of both | Copies a `phenotype_trait` to the target for 2 `$ATP`. `phenotype_trait` must equal the source's current trait (`ERR_TRAIT_MISMATCH`). Event `trait_conjugated` |
+
+## Economy
+
+| Method | Arguments | Deposit | Gas | Who | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `advance_epoch` | none | none | - | anyone | Closes the epoch after 24 hours of contract time. Events `feast_result` and `epoch_dividend_closed` |
+| `ft_burn` | `strain_id`, `amount` | none | - | owner | Burns `$SNACC` from the Snacc's stomach: supply goes down and the burned counter up. Event `nep141` `ft_burn` |
+| `synthesize_and_redeem_aether` | `strain_id`, `amount` | none | 50 | owner | Burns `mt:elixir-aether` for the running epoch's dividend |
+| `claim_industrial_dividend` | `strain_id`, `epoch` | none | 50 | owner | Pays a closed epoch's share into the stomach. Returns the payout |
+| `npc_buy_spores` | `strain_id`, `npc_id`, `buy_amount` | none | 50 | owner | Buys `mt:spore-ignis` from an NPC. Returns the `NpcQuoteView` |
+
+## Genome (TEE)
+
+| Method | Arguments | Deposit | Gas | Who | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `commit_genome_experiment` | `strain_id`, `req_sha256_hex` | none | - | owner | `req_sha256_hex` is 64 hex characters (32 bytes) |
+| `apply_tee_mutation_zero_trust` | `strain_id`, `req_sha256_hex`, `raw_response_body`, `signature_hex`, `tee_pubkey_hex` | none | - | owner | `signature_hex` is 128 hex characters, `tee_pubkey_hex` 64. The body must be at most 4096 bytes. Returns the view |
+| `register_attested_signer` | `pubkey_hex`, `attested_at_sec` | none | - | contract owner | Adds an enclave key. Re-registering a key with another time fails (`ERR_TEE_SIGNER_OVERWRITE`) |
+| `remove_attested_signer` | `pubkey_hex` | none | - | contract owner | `ERR_TEE_SIGNER_NOT_FOUND` if the key is not registered |
+
+## Tokens: `NEP-141` and `NEP-171`
+
+`$SNACC` has 24 decimals. `ft_balance_of` counts **account** balances only (bounties, payouts and dividends credited to an account). `$SNACC` inside a Snacc is not part of it. `get_total_wealth` adds both.
+
+| Method | Arguments | Deposit | Gas | Notes |
+| --- | --- | --- | --- | --- |
+| `ft_transfer` | `receiver_id`, `amount`, `memo?` | 1 yocto | 30 | The receiver must be registered with `storage_deposit` (`ERR_ACCOUNT_NOT_REGISTERED`) |
+| `ft_transfer_call` | `receiver_id`, `amount`, `memo?`, `msg` | 1 yocto | - | Transfers, then calls `ft_on_transfer` on the receiver (20 TGas) and refunds the unused part |
+| `nft_transfer` | `receiver_id`, `token_id`, `approval_id?`, `memo?` | 1 yocto | 50 | Moves the whole Snacc: stomach, inventory, organelles, `$ATP`. `approval_id` is accepted and ignored. Dead Snaccs cannot move |
+| `nft_transfer_call` | `receiver_id`, `token_id`, `approval_id?`, `memo?`, `msg` | 1 yocto | 100 for a listing | Needs more than 50 TGas prepaid (`ERR_MORE_GAS_REQUIRED`). Calls `nft_on_transfer`; a receiver that returns `true`, fails, or answers badly gives the token back |
+| `ft_metadata`, `ft_balance_of`, `ft_total_supply` | none / `account_id` | view | - | `ft_metadata` has `decimals` 24 and symbol `$SNACC` |
+| `nft_metadata`, `nft_total_supply`, `nft_token`, `nft_tokens`, `nft_supply_for_owner`, `nft_tokens_for_owner` | `token_id`, `from_index?`, `limit?`, `account_id` | view | - | `NEP-177` and `NEP-181`. The `token_id` is the `strain_id` as a string. `nft_token` returns `media` as a `data:image/svg+xml;base64,...` image drawn from the live state |
+
+There is no `NEP-178` approval registry, and no public `mt_*` methods: molecules are internal.
+
+## Views
+
+| View | Arguments | Returns |
+| --- | --- | --- |
+| `get_strain` | `strain_id` | `StrainVesselView` |
+| `get_solvency_tier` | `strain_id` | `Tier1Healthy`, `Tier2Chapter11Distressed` or `Tier3Chapter7Insolvent` |
+| `get_inventory` | `strain_id`, `token_id` | balance as a string, `"0"` when absent |
+| `get_colony` | `owner_id` | the owner's living Snaccs as views |
+| `get_colony_atp` | `owner_id` | sum of `$ATP` of the living Snaccs |
+| `get_crucible_temp` | none | the temperature in mK |
+| `get_macro_state` | none | `MacroStateView`, with `crucible_temp` computed now |
+| `get_appetite_meter` | none | `zone`, `crucible_temp`, `current_epoch`, `burst_bps`, `burst_until`, `burst_epochs_left`, `dormant`, `feast_volume`, `feast_target`, `risk_heat` |
+| `get_burst_state` | none | `(burst_bps, burst_until)` |
+| `get_risk_heat` | none | 0 to 10000 |
+| `get_top_feeder` | `epoch` | up to 3 `{ account_id, amount }` |
+| `get_dividend_pool` | none | `(pool, epoch_dividend_inflow, last_closed_epoch)` |
+| `get_epoch_dividend_rate` | `epoch` | rate scaled by 10^18, 0 if not closed |
+| `get_dividend_contribution` | `epoch`, `strain_id` | `(burned amount, claimed)` |
+| `get_npc` | `npc_id` | `NpcMerchantAgent` |
+| `npc_quote_spores` | `npc_id`, `buy_amount` | `NpcQuoteView` |
+| `get_total_wealth` | `account_id` | account balance plus the stomachs the account owns |
+| `get_global_solvency` | none | `GlobalSolvencyView` with `drift` and `solvent` |
+| `protocol_version` | none | `"snacc-v001"` |
+| `get_sandbox_clock` | none | `(enabled, offset_sec, now_sec)` |
+
+### Main view shapes
+
+- **`StrainVesselView`**: `strain_id`, `owner_id`, `vault_subaccount`, `vitality`, `efficiency_bps`, `bmr_per_hour`, `last_fed_sec`, `role_mask`, `state_nonce`, `pending_callbacks`, `atp_balance`, `pending_commitment`, `phenotype_trait`, `generation`, `organel` (`mitokondria`, `nukleus`, `lisosom`), `last_allocate_epoch`, `status` (`Active`, `Distressed`, `Liquidated` or `SplicedBurned`) and `effective_vitality`.
+- **`MacroStateView`**: `current_epoch`, `epoch_ends_sec`, `last_update_ms`, `volume_epoch`, `total_snacc_supply`, `total_snacc_burned`, `epoch_treasury_spent`, `epoch_treasury_initial`, `nutrient_burst_bps`, `nutrient_burst_until`, `industrial_dividend_pool`, `epoch_dividend_inflow`, `epoch_aether_burned_total`, `last_closed_epoch`, `epoch_feast_volume`, `last_zone`, `epoch_burst_discount_granted`, the solvency sums, `total_catalyst_fees`, the counters `total_births`, `total_mergers`, `total_lyses`, `total_divides`, `params` and `crucible_temp`.
+- **`NpcMerchantAgent`**: `npc_id`, `wallet_account`, `role_archetype`, `snacc_reserve`, `spores_stock`, `target_spores_stock`, `base_spore_price`, `trades_executed`.
+- **`NpcQuoteView`**: `npc_id`, `unit_price_vita`, `total_cost_snacc`, `npc_spores_stock_after`, `crucible_temp_mk`, `reasoning_tooltip`.
+- **`GlobalSolvencyView`**: `total_minted`, `total_burned`, `sum_account_balances`, `sum_strain_snacc`, `sum_treasury`, `sum_dividend_pool`, `epoch_dividend_inflow`, `sum_npc_reserve`, `total_catalyst_fees`, `drift`, `solvent`. The books balance when `drift` is 0.
+
+## Lifecycle and private methods
+
+| Method | Notes |
+| --- | --- |
+| `new` | The initializer. The deployer becomes the contract owner. It creates the three NPCs |
+| `migrate` | `#[private]`: only the contract account can call it. It starts a new data generation, so old data becomes unreadable, and keeps the owner |
+| `advance_sandbox_clock(hours)` | Contract owner only, and only when the contract account ends in `.testnet`. At most 720 hours per call. It moves contract time forward for demos. Event `sandbox_clock_advanced` |
+| `on_subaccount_created`, `on_transfer_call`, `nft_resolve_transfer` | `#[private]` callbacks of promises the contract made itself |
+
+## Events
+
+Events are `NEP-297` log lines:
+
+```text
+EVENT_JSON:{"standard":"snacc","version":"1.0.0","event":"fed","data":[{ ... }]}
+```
+
+Standard `snacc`, version `1.0.0`. All amounts in the payloads are JSON numbers except where noted; read them with a big-number parser.
+
+| Event | Payload fields |
+| --- | --- |
+| `strain_created` | `strain_id`, `owner_id`, `role_mask`, `initial_snacc_stake`, `spores_minted` |
+| `fed` | `strain_id`, `base_fee`, `effective_fee`, `burst_bps`, `rescue_bps`, `dormant`, `atp_minted` |
+| `extracted` | `strain_id`, `token`, `amount`, `catalyst_fee` |
+| `transmuted` | `strain_id`, `burned_spores`, `token_out`, `minted`, `catalyst_fee`, `diet_bps` |
+| `synthesized` | `strain_id`, `token_out`, `minted`, `enzymes_burned`, `catalyst_fee` |
+| `atp_spent` | `strain_id`, `purpose` (`extract`, `transmute`, `synthesize`, `splice`, `hostile`, `divide`), `cost` |
+| `atp_allocated` | `strain_id`, `mitokondria`, `nukleus`, `lisosom`, `cost`, `epoch` |
+| `strain_divided` | `parent_id`, `child_id`, `child_generation`, `parent_balance`, `child_balance`, `child_vitality`, `child_spores` |
+| `strains_spliced` | `dominant_id`, `absorbed_id`, `merger_tax` |
+| `hostile_takeover_spliced` | `raider_id`, `target_id`, `book_value`, `payment`, `seller_payout`, `treasury_cut` |
+| `strain_adopted` | `target_id`, `adopter`, `raider_strain_id`, `book_value` |
+| `strain_liquidated` | `target_id`, `liquidator`, `bounty`, `treasury_recovery` |
+| `nutrient_burst_released` | `strain_id`, `epoch`, `released_vita`, `burst_bps`, `until_epoch` |
+| `trait_conjugated` | `from_strain_id`, `to_strain_id`, `phenotype_trait` |
+| `genome_committed` | `strain_id`, `req_sha256_hex` |
+| `genome_mutated` | `strain_id`, `efficiency_shift_bps`, `vitality_bonus` |
+| `signer_added` | `pubkey_hex`, `attested_at_sec` |
+| `signer_removed` | `pubkey_hex` |
+| `zone_changed` | `from_zone`, `to_zone`, `crucible_temp` |
+| `dividend_inflow` | `action`, `fee`, `burned`, `inflow`, `epoch` |
+| `aether_burned_for_dividend` | `strain_id`, `amount`, `epoch`, `cumulative` |
+| `dividend_claimed` | `strain_id`, `epoch`, `contribution`, `payout`, `pool_after` |
+| `epoch_dividend_closed` | `epoch`, `pool`, `total_burned`, `rate` |
+| `feast_result` | `epoch`, `volume`, `target`, `verdict` |
+| `npc_spores_bought` | `strain_id`, `npc_id`, `amount`, `unit_price`, `total_cost` |
+| `sandbox_clock_advanced` | `hours`, `sandbox_time_offset_sec` |
+
+Token events use the standards `nep141` (`ft_mint` on hatching with NEAR, `ft_burn`, `ft_transfer`) and `nep171` (`nft_transfer`), with amounts as decimal strings. `materialize_subaccount` writes a plain log line, `subaccount_materialized strain_id=<id> sub_account_id=<name>`, not a JSON event.
+
+## Error codes
+
+A failed call panics with one of these messages. The app turns them into plain-English text.
+
+| Code | Raised when |
+| --- | --- |
+| `ERR_STRAIN_NOT_FOUND` | the strain id does not exist, or a token id is not a number |
+| `ERR_NOT_OWNED_BY_CALLEE` | the caller does not own the Snacc (feed, divide, allocate, adopt and takeover raider, splice dominant, NPC, transfers, genome, `ft_burn`) |
+| `ERR_NOT_STRAIN_OWNER` | the caller does not own the Snacc (stage actions, aether redeem, dividend claim) |
+| `ERR_STAKE_DEPOSIT_MISMATCH` | the attached NEAR does not equal the stake or the catalyst fee |
+| `ERR_INSUFFICIENT_DEPOSIT` | hatching with 0 NEAR and a 0 stake, `materialize_subaccount` below 0.02 NEAR, `storage_deposit` below 5 milliNEAR, `storage_unregister` with a balance and no `force` |
+| `ERR_INSUFFICIENT_BALANCE` | not enough `$SNACC` or molecules, or `feed_strain` with an amount of 0 |
+| `ERR_ROLE_MASK_NOT_SINGLE` | an internal check that a new Snacc has one role bit |
+| `ERR_STRAIN_STARVING` | the action needs a Snacc with effective vitality above 0 |
+| `ERR_ROLE_NOT_ALLOWED` | the Snacc lacks the role bit of that stage |
+| `ERR_UNKNOWN_TOKEN` | an unknown `spore_type` or `elixir_type` |
+| `ERR_RECIPE_NOT_MET` | the burn count is 0, odd (transmute) or not a whole number of batches (synthesize) |
+| `ERR_REQUIRES_TEE_ATTESTATION` | aether without a TEE `phenotype_trait` |
+| `ERR_NOT_ENOUGH_ATP` | the Snacc cannot pay the `$ATP` cost |
+| `ERR_ALREADY_ALLOCATED` | `allocate_atp` twice in one epoch |
+| `ERR_ORGANEL_LEVEL_MAX` | an organelle level above 5 |
+| `ERR_SAME_STRAIN` | the same Snacc on both sides, or a transfer to yourself |
+| `ERR_NOT_SAME_OWNER` | splice or conjugate with a Snacc you do not own |
+| `ERR_STRAIN_ALREADY_SPLICED` | a dead Snacc (`Liquidated` or `SplicedBurned`) used in divide, splice, conjugate, allocate or as a target |
+| `ERR_ALREADY_LIQUIDATED` | harvest, adopt or transfer of a dead Snacc |
+| `ERR_COLONY_FULL` | the colony already has `MAX_COLONY_SIZE` (5) living Snaccs |
+| `ERR_MAX_GENERATION` | the new generation would pass `MAX_GENERATION` (8) |
+| `ERR_BIRTHS_EXCEEDED` | `total_divides` would exceed `total_mergers + total_lyses` |
+| `ERR_NOT_DISTRESSED` | the target's effective vitality is not 1 to 2000 |
+| `ERR_STRAIN_NOT_INSOLVENT` | harvest of a Snacc whose effective vitality is above 0 |
+| `ERR_PENDING_ASYNC_CALLBACK_LOCKED` | the target has an unfinished callback |
+| `ERR_STATE_NONCE_CHANGED_SELLER_DRAIN_BLOCKED` | `expected_target_nonce` does not match the target's `state_nonce` |
+| `ERR_TRAIT_MISMATCH` | `conjugate_traits` with a trait that is not the source's current one |
+| `ERR_NPC_UNKNOWN` | an unknown `npc_id` |
+| `ERR_NPC_OUT_OF_STOCK` | the NPC has fewer spores than `buy_amount` |
+| `ERR_BAD_AMOUNT` | `buy_amount` is 0, or `advance_sandbox_clock` hours outside 1 to 720 |
+| `ERR_EPOCH_NOT_ENDED` | `advance_epoch` before the epoch's 24 hours are over |
+| `ERR_EPOCH_NOT_CLOSED` | a dividend claim for an epoch that is not closed |
+| `ERR_DIVIDEND_CLAIM_EXPIRED` | a dividend claim more than 8 epochs back |
+| `ERR_DIVIDEND_ALREADY_CLAIMED` | a second claim for the same epoch and Snacc |
+| `ERR_DIVIDEND_POOL_EMPTY` | the payout would be 0 |
+| `ERR_INSUFFICIENT_AETHER` | `amount` below 1, or more aether than the Snacc holds |
+| `ERR_ROLE_LOCKED_NEEDS_SYNTHESIZER_GENE` | aether redeem on a Snacc without the Synthesizer bit |
+| `ERR_COMMITMENT_ALREADY_PENDING` | a second `commit_genome_experiment` before an apply |
+| `ERR_COMMITMENT_MISMATCH` | the apply hash is not the pending commitment |
+| `ERR_TEE_RESPONSE_TOO_LARGE` | the response body is over 4096 bytes |
+| `ERR_SIGNER_NOT_REGISTERED` | the signer key is not in the registry |
+| `ERR_TEE_RESPONSE_HASH_OR_ED25519_MISMATCH` | the signature is invalid, or the body is not the expected JSON |
+| `ERR_TEE_REPLAY` | the `chat_id` was already used |
+| `ERR_PAYLOAD_STRAIN_MISMATCH` | the `strain_id` inside the answer is not the one in the call |
+| `ERR_GUARDRAIL_SHIFT` | `efficiency_shift_bps` outside -1500 to 1500 |
+| `ERR_GUARDRAIL_VITALITY` | `vitality_bonus` above 500 |
+| `ERR_TEE_TRAIT_INVALID` | `phenotype_trait` longer than 32 characters |
+| `ERR_BAD_HEX`, `ERR_BAD_SIGNATURE_LEN` | a hex argument of the wrong length or with bad characters |
+| `ERR_NOT_CONTRACT_OWNER` | a contract-owner method called by someone else |
+| `ERR_TEE_SIGNER_OVERWRITE`, `ERR_TEE_SIGNER_NOT_FOUND` | signer registry rules |
+| `ERR_SANDBOX_CLOCK_DISABLED` | `advance_sandbox_clock` on an account that does not end in `.testnet` |
+| `ERR_ACCOUNT_NOT_REGISTERED` | an `ft_transfer` receiver, or a `storage_withdraw` caller, that is not registered |
+| `ERR_YOCTO_REQUIRED` | a transfer or `storage_unregister` without exactly 1 yoctoNEAR |
+| `ERR_MORE_GAS_REQUIRED` | `nft_transfer_call` with 50 TGas or less prepaid |
+
+`ERR_STRAIN_ALREADY_INCUBATED` is defined in the source but never raised.

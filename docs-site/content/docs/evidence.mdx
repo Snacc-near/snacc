@@ -1,0 +1,118 @@
+---
+title: Evidence
+description: The testnet transaction hashes behind the claims on this site, with NearBlocks links, how to check them yourself, the dated code hash note, and what is not proven.
+icon: FileCheck
+---
+
+Every claim about the chain on this site rests on a transaction hash that is in the public repos: the [README of the umbrella repo](https://github.com/Snacc-near/Snacc) and its [`docs/evidence-pack.md`](https://github.com/Snacc-near/Snacc/blob/main/docs/evidence-pack.md). This page copies them with explorer links. A hash with no row here is not a claim. NEAR **testnet only**, and `$SNACC` on testnet has no monetary value.
+
+## How to check a hash yourself
+
+{/* Diagram checked against: umbrella docs/evidence-pack.md (section 0, the view and tx helpers, the RPC notes), README ("Live evidence", "On-chain proof"); scripts repo check-links.mjs (archival RPC note). */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor R as Reader
+  participant X as NearBlocks testnet
+  participant P as Public RPC
+  participant C as snacc-v001.testnet
+  R->>X: open the link of a hash
+  X-->>R: signer, method, logs with EVENT_JSON
+  R->>P: tx(hash, signer), a read-only call
+  P-->>R: final status, SuccessValue, receipts
+  R->>P: call_function get_global_solvency (a view)
+  P->>C: run the view
+  C-->>R: drift 0, solvent true
+```
+
+- **A transaction.** Open the NearBlocks link, or ask a public RPC (for example `https://test.rpc.fastnear.com`) with the method `tx` and the hash plus the signer account. A good row has a final status with a `SuccessValue` and no failed receipt.
+- **A view.** Call `call_function` on `snacc-v001.testnet` with the method name and base64 arguments. Ids go in as JSON numbers.
+- **Old hashes.** A regular RPC node forgets old transactions after a few days. Use NearBlocks or an archival node (`https://archival-rpc.testnet.fastnear.com`) for older ones.
+- **Offline.** In a clone of the umbrella repo, `npm run verify:thesis` and `npm run demo:replay` read the committed evidence files in `evidence/` and need no keys.
+
+## The code hash note
+
+<Callout type="warn" title="The live code is newer than the evidence build (dated 2026-11-14)">
+The gladi evidence below was produced on the build deployed on 2026-11-09. That build is the file `evidence/snacc.wasm` in the umbrella repo: its SHA-256 is `b787c60616d1ce686c728d42f05f0dc23e6df2dff80e75627ed95742f6be8c77`, which is the NEAR `code_hash` `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr`. On 2026-11-13 the contract was upgraded to add the `NEP-171` `nft_transfer_call` that the market needs. The on-chain `code_hash` of `snacc-v001.testnet` is now `4m2z2PiZTa1mSG5A8cnr5b9fxDWY4n3HiPGzcP7EtwiH`. It was read from the RPC on 2026-11-14 (the README records the same value) and re-read from the RPC at 01:20 UTC on 2026-11-14 for this page.
+
+So the code hash on chain today is not the hash of `evidence/snacc.wasm`. The older rows still show what that build did. They do not show what the upgraded code does for every method, apart from the market run below. The wasm was built with a non-reproducible build, and the public source matches it functionally, not byte for byte.
+</Callout>
+
+| What | Transaction |
+| --- | --- |
+| Deploy of the 2026-11-09 build | [`BF3MfUnp…`](https://testnet.nearblocks.io/txns/BF3MfUnpCtcqqXfBWnusDixvHHENBX2FrUHVhbEZQM7V) |
+| `migrate` (resets state, strain ids restart at 1) | [`G4fLRtP7…`](https://testnet.nearblocks.io/txns/G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25) |
+| Upgrade of 2026-11-13, adds `nft_transfer_call` | [`8ydFE4Xj…`](https://testnet.nearblocks.io/txns/8ydFE4XjpwYbnrPUULjvtbqbqwU4PYSJ3rJyyVimu4TL) |
+
+The README's older "Live evidence" table lists hashes that are not in the committed manifest of the 2026-11-09 run, and they appear to belong to an earlier deployment (the evidence pack says transactions of earlier deployments are no longer cited). This site does not use them.
+
+## The app's exact payloads
+
+Four transactions to `snacc-v001.testnet` carry exactly the arguments, attached NEAR and gas that the app's call builders produce. They were signed from the command line, **not through the app's wallet flow**. Each was read back from the RPC.
+
+| Action | Payload | What the chain recorded | Transaction |
+| --- | --- | --- | --- |
+| Hatch | `incubate_strain`, 0.25 NEAR, role `Extractor`, 10 spores, 100 TGas | `strain_created`, strain 10 | [`zx8ASZjo…`](https://testnet.nearblocks.io/txns/zx8ASZjoPypzWc9TwjUumKZWo8thNAoKTutpqyy3kVa) |
+| Feed | `feed_strain`, strain 10, 0.05 `$SNACC`, 0 NEAR, 100 TGas | `fed`, strain 10 | [`EbYbVWzV…`](https://testnet.nearblocks.io/txns/EbYbVWzVDnTd5im3wf1TPVS5r4ff1GbZw2QFjTntoiZ3) |
+| Allocate ATP | `allocate_atp`, mitokondria 1, nukleus 1, 0 NEAR, 50 TGas | `atp_allocated`, strain 10 | [`2LnyPshQ…`](https://testnet.nearblocks.io/txns/2LnyPshQH5hqqiY9rERTeVCRWT9LkpEFd2kB1sEvZB3E) |
+| Divide | `divide_strain`, strain 10, 0 NEAR, 100 TGas | `strain_divided`, parent 10, child 11 | [`81vVZ5cu…`](https://testnet.nearblocks.io/txns/81vVZ5cu8ofeKtBB3WskHjjjWU8mmQQ9wxpAYb3hkZgi) |
+
+## The market contract
+
+`snacc-market.testnet` was deployed, and a list, delist and buy run on strain 11 was done with transactions signed from the command line. See [Marketplace](/docs/marketplace).
+
+| Step | Transaction |
+| --- | --- |
+| Deploy and `new` of the market | [`BTymNHdj…`](https://testnet.nearblocks.io/txns/BTymNHdjr5D746phRx3H2BQn3zG5bzDGdKpv8BujcGMz) |
+| List strain 11 (`nft_transfer_call`, price 0.1 NEAR) | [`6JF7XvVD…`](https://testnet.nearblocks.io/txns/6JF7XvVDJhxax2hxXF57WuzH1JrSkaz12TRPzmegTPwN) |
+| Delist strain 11 | [`8Q3p33jw…`](https://testnet.nearblocks.io/txns/8Q3p33jwX8sfugNy5eMQ64aZJoUydm8kCrUJMXxHZv41) |
+| Buy strain 11 (0.1 NEAR) | [`86HXrAAQ…`](https://testnet.nearblocks.io/txns/86HXrAAQ3WTpBYTBwAJ3yeNbUev9ttdLRvFUpDZ8VkAd) |
+
+## The committed testnet run
+
+This is the run described by `evidence/gladi-manifest.json` and `evidence/gladi-kpi.md` on the 2026-11-09 build: 51 transactions, 22 checks of the project's own rules, all passed when it was last checked. The owner-only **sandbox clock** moved contract time forward for the epoch close and the starvation windows, so those waits were skipped (the three clock jumps are listed). The rules under test are the real ones.
+
+| Area | What was shown | Transaction |
+| --- | --- | --- |
+| Birth | `strain_created` and an `ft_mint` event for strain 1 | [`5JCAmSL7…`](https://testnet.nearblocks.io/txns/5JCAmSL7pLTV8mShrNuEtG5WLPkCqKkYCZBf5WGtQ2wY) |
+| Feeding | `fed` with `atp_minted` | [`4hnA4pEU…`](https://testnet.nearblocks.io/txns/4hnA4pEUqghdtN8WycJJXCnSYQSEZ9F5DQamAuEub3GF) |
+| Organelles | `allocate_atp` 1/1/1, cost 3 | [`FvvtM5qD…`](https://testnet.nearblocks.io/txns/FvvtM5qDCGUUgBpjABtpHiV6Lfxzw2K63PfXbmUxRWeY) |
+| Stage 1 | `extract_spores`, `mt:spore-ignis` | [`8dh9iuu1…`](https://testnet.nearblocks.io/txns/8dh9iuu1HaiFRFMSKiimnHj14saC3nqNRHz4yCiurYSf) |
+| Stage 2 | `transmute_spores_to_enzyme`, ignis to amalgam | [`Eq3z68Dv…`](https://testnet.nearblocks.io/txns/Eq3z68DvSBup2VNR84hocn8Roznv5xAy18GfMVfxWGv6) |
+| Stage 2 | transmute, cryo to synthase | [`3Efj27mt…`](https://testnet.nearblocks.io/txns/3Efj27mtcRsipiqFr4yys7SxeWcJNFGp4FzUEmjkYTPM) |
+| Stage 3 | `synthesize_elixir`, `mt:elixir-homeostasis` | [`8Zi3VxSm…`](https://testnet.nearblocks.io/txns/8Zi3VxSmGrmWEZPM346XPQGt4DS1fAw1HnB3MicKtxCA) |
+| Stage 3 | `synthesize_elixir`, `mt:elixir-aether` (after a TEE mutation) | [`q5nP4ygL…`](https://testnet.nearblocks.io/txns/q5nP4ygLrGdku9VomX2C5ebjPeaGfhVzXwR7cq5ShGt) |
+| Merge | `strains_spliced` with a 2.5% tax | [`4ABtdBdj…`](https://testnet.nearblocks.io/txns/4ABtdBdjYkynQXXMsYD8ZKUwMtNAWX1wgEpREsX3i4nH) · [`BrRsL5nd…`](https://testnet.nearblocks.io/txns/BrRsL5ndkeUPoRBBf7w5prMvstCc8Rz4yEh2VTFyKNmZ) · [`8M41CAwA…`](https://testnet.nearblocks.io/txns/8M41CAwAE2HY9twCsgz5fHWrt5j8UPV2i9vZmH6nQ2Nb) |
+| Division | `strain_divided`, parent 1, child 6 | [`GVwhXD6k…`](https://testnet.nearblocks.io/txns/GVwhXD6kYyb9qDe2nDZMB6RUgsK5FqqTN51kVuYgnYWf) |
+| Hostile takeover | 115% of book value, 95% to the seller | [`4o4qwoGZ…`](https://testnet.nearblocks.io/txns/4o4qwoGZtR7HE5E3VnjQZpXwDicpa9QVBzXHS1YP2v4f) |
+| Adopt | book value to the previous owner | [`7w3tBNjL…`](https://testnet.nearblocks.io/txns/7w3tBNjLYFXKiUdmXtH1LhponGr6yhu1Q22xCFdLzo34) |
+| Harvest | `strain_liquidated`, 10% bounty, and a Nutrient Burst | [`AhEk4TNN…`](https://testnet.nearblocks.io/txns/AhEk4TNNeTj4orchvXSuPood8vAxTiQNWhZZwSdD9JH9) |
+| Central bank, Fever | `zone_changed` `HYPO` to `FEVER`, burn 175 bps | [`CfBR8pFN…`](https://testnet.nearblocks.io/txns/CfBR8pFNCGAjCAX21pSMQY9rdjQ2cVKonkzacFjmZpM8) |
+| Central bank, Hypothermia | feed with `burst_bps` 360 and a rebate from the Pantry | [`BXSNviQV…`](https://testnet.nearblocks.io/txns/BXSNviQVcvF7rDVp2sBTrD2nWkH8Nu4JXdMqXRezGo7s) |
+| NPC | `npc_spores_bought`, 50 spores at unit price 111 | [`2VCzPuL5…`](https://testnet.nearblocks.io/txns/2VCzPuL5imnFThJC479mzpF6mcQDcz8nhUvpmkvV1RFg) |
+| Dividend | `aether_burned_for_dividend`, epoch 0 | [`GfqatLA7…`](https://testnet.nearblocks.io/txns/GfqatLA7TMR9mGBsA4Fo9Z76dHWTKABJhu4v6nVCmXzG) |
+| Epoch close | `feast_result` `UNDERFED` and `epoch_dividend_closed` | [`9F4KGd9b…`](https://testnet.nearblocks.io/txns/9F4KGd9bZXwtQEpvJGQYcx2Vz7fsa9LbyyTySxYhfLjW) |
+| Dividend claim | `dividend_claimed`, strain 5, epoch 0 | [`6hPrMTJu…`](https://testnet.nearblocks.io/txns/6hPrMTJubZTcRATiGQxYZNxcL4WGXA3KVpgHqtvoBWFq) |
+| TEE signer | `signer_added` | [`BovEAtK5…`](https://testnet.nearblocks.io/txns/BovEAtK5gUZ6dthCX5Cn6qHnmZZ9bhtSTpGuYXRqYgfw) |
+| TEE commit | `genome_committed` | [`EnXBEETd…`](https://testnet.nearblocks.io/txns/EnXBEETdyG4TcjmrzGgJxzczGcxMshXZuEBorG8yHwDC) |
+| TEE apply | `genome_mutated`, checked with `env::ed25519_verify` | [`B8xdaukd…`](https://testnet.nearblocks.io/txns/B8xdaukdnf3Fh9ZkMNfXxXW7TrHVLZLeXQNdYyBtD2AG) |
+| Token | `ft_transfer` between accounts | [`FQ6R9fmK…`](https://testnet.nearblocks.io/txns/FQ6R9fmKWntSwQPjKchbd3EY8tnoZ3pvcNvSwZAtvXa8) |
+| Token | `ft_burn` of 10^15 yocto | [`ERBRL4rT…`](https://testnet.nearblocks.io/txns/ERBRL4rTS6JHEKVsSumLYtru1hXsSYWdkGJH8d1krJaL) |
+| NFT | `nft_transfer` of strain 4 | [`HfhZG6sA…`](https://testnet.nearblocks.io/txns/HfhZG6sAdqpKRSJsYRagD9mapCq7JrJvPthkUxFUZQQn) |
+| Storage | `storage_deposit`, 5 milliNEAR | [`9ToLDxMz…`](https://testnet.nearblocks.io/txns/9ToLDxMzyqRXM17NJNHd7CAHju8HxtoR2HZZVpUawH9g) |
+| Sub-account | `materialize_subaccount`, vault `s-5-276919939.snacc-v001.testnet` | [`HUqc4HUx…`](https://testnet.nearblocks.io/txns/HUqc4HUxwaBpqbNdcbiHa2WFEGfeu6HN2hjkyxcnEKK6) |
+| Sandbox clock | `advance_sandbox_clock`, three jumps | [`8YcqqVK3…`](https://testnet.nearblocks.io/txns/8YcqqVK35ubGVZLb1qj8ZLaqS6La7bAcGCafg3ohvuFA) · [`3pGR5KDM…`](https://testnet.nearblocks.io/txns/3pGR5KDMqbS6VgnwBhkvUxVJSubTZ5C4YU9kZSK6wWLu) · [`5yt47rCD…`](https://testnet.nearblocks.io/txns/5yt47rCDRwkZhEjNi5WDEzWBTgi3kznC5Jar7cpf2ZYC) |
+
+Views read on 2026-11-09 after the run: `get_global_solvency` reported `drift` 0 and `solvent` true, `ft_total_supply` equalled `total_snacc_supply`, and the sub-account `s-5-276919939.snacc-v001.testnet` existed on chain. The sub-account name has the form `s-<id>-<tag>.<contract>`. The evidence pack also lists four deliberate rejections by a non-owner account (calls to `migrate`, `advance_sandbox_clock`, `register_attested_signer` and `extract_spores` that failed as intended).
+
+The TEE vector in `evidence/tee-vector-live.json` (a real NEAR AI Cloud response, chat `d1979ce2662d4da6ae7a931d1158656d`) can be re-verified offline. The call arguments of the commit and apply transactions above are byte-equal to it.
+
+## What this does not prove
+
+- It does not show that the app's wallet flow works. The README keeps a separate column for that, and says it has not been exercised.
+- It does not show one-tap play, the Market window, push delivery or a full sign-in with a real wallet.
+- Only one epoch was closed, with one dividend contributor. A time-compressed clock was used for the epoch and the starvation windows.
+- A valid TEE signature does not prove the key is inside a genuine enclave.
+- The 22 checks are the depth of the rules they test. They are not the completeness of the product.
+- Nothing is on mainnet.

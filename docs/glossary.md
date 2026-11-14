@@ -47,7 +47,7 @@
 | Industrial dividend | Profit distribution | `industrial_dividend_pool` | **50%** of non-burn fees (`ADR-28`); golden claim pro-rata via burning `mt:elixir-aether`; **8-epoch** window |
 | NPC merchant | Autonomous market-maker | `NpcMerchantAgent` (`D4`) | price `P_base(100) × S_target / S_after` (`I-15`); Pyre-X / Myco-7 / Void-0 |
 | Secret genome | Production IP | `phenotype_trait` + TEE | `z-ai/glm-5.3-flash` on NEAR AI Cloud; guardrail ±**1500 bps**/vitality ≤**500** (`I-03`) |
-| Cell account | NFT custody | `vault_subaccount` | `s-<id>.<contract-account>` keyless (`ADR-02`) |
+| Cell account | NFT custody | `vault_subaccount` | `s-<id>-<tag>.<contract-account>` keyless (`ADR-02`) |
 | Transplantation | Asset ownership transfer | `nft_transfer(_call)` | whole cell (stomach+inventory+organelles+ATP) moves together; 1 yoctoNEAR |
 
 ## 4. References
