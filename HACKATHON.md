@@ -1,8 +1,7 @@
 # Snacc — NEAR Hackathon submission notes
 
-Status (2026-11-14): evidence pack written; the frontend is deployed at https://snacc-nu.vercel.app (NEAR testnet only; game at `/app`); the demo video and the submission form are still pending (see `docs/evidence-pack.md` §7). The player-profile part (Supabase: eight Edge Functions plus the database) is deployed; the starter pack and account deletion are not active yet (see the README table "What's in the app").
+**Snacc (`$SNACC`) — a memecoin with a metabolism.** NFTs that eat a memecoin: feed your Snacc or it gets snacked. The README maps eleven laws of cell biology to contract methods and constants, each with a transaction you can open where one exists.
 
-- **Project:** Snacc (`$SNACC`) — *a memecoin with a metabolism.* NFTs that eat a memecoin: feed your Snacc or it gets snacked. The README maps eleven laws of cell biology to contract methods and constants, each with a testnet transaction where one exists.
 - **Tracks:** `memecoins` + `nfts`. Other tracks are listed in the evidence pack only where a testnet tx hash or a view call backs them.
 - **Window:** 1–14 Nov 2026 · **Org:** `Snacc-near` · **License:** MIT
 - **Contract (testnet):** `snacc-v001.testnet` — one Rust contract (`near-sdk 5.29.1`). Nothing is deployed on mainnet. `code_hash` read on 2026-11-14: `4m2z2PiZTa1mSG5A8cnr5b9fxDWY4n3HiPGzcP7EtwiH` (code upgrade of 2026-11-13).
@@ -13,6 +12,10 @@ Status (2026-11-14): evidence pack written; the frontend is deployed at https://
 - **Disclosure:** the sibling project's test account `x207-demo-buyer.testnet` was the second account in the rehearsal (hostile takeover, a hatch, a Keypom drop spike, four rejected non-owner calls, receiver of `nft_transfer`). Everything else was signed by `snacc-v001.testnet`. See README [Disclosure](README.md#disclosure-accounts-used-in-the-rehearsal).
 - **TEE:** the contract verifies an `ed25519` signature and recomputes the request hash on chain. Enclave attestation is **not yet verified**, and the result is **not private** (the apply call carries the response body in public arguments; Layer-2 cloud redaction does not run, `/v1/privacy/redact` answers 404). See README [TEE section](README.md#tee-what-the-chain-and-the-vector-file-each-hold).
 - **On-chain SVG:** live images are 448–482 B (a plain telemetry card); 1,734 B is the budget, not the live size. The "84.42% cheaper" figure in `verify:thesis` F-01 is computed against an assumed baseline of 11,129 B.
+
+## Status (2026-11-14)
+
+Evidence pack written; the frontend is deployed at https://snacc-nu.vercel.app (NEAR testnet only; game at `/app`); the demo video and the submission form are still pending (see `docs/evidence-pack.md` §7). The player-profile part (Supabase: eight Edge Functions plus the database) is deployed; the starter pack and account deletion are not active yet (see the README table "What's in the app").
 
 ## Judge quickstart (Node.js 22+, no key, no `npm install`)
 

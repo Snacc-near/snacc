@@ -2,11 +2,9 @@
 
 *NFTs that eat a memecoin. Feed your Snacc or it gets snacked.* This is the umbrella repo of the Snacc polyrepo: judge README, docs, evidence and demo orchestration.
 
-**Status, 2026-11-14:** NEAR **testnet only** (nothing is on mainnet) · tracks `memecoins` + `nfts` · contract `snacc-v001.testnet` · 51 rehearsal transactions and 22/22 rehearsal checks, with their [claim limits](#claim-limits-read-before-the-numbers) · `$SNACC` testnet has no monetary value · no testnet hash means no live claim.
-
 We did not paint biology on a memecoin; the constants are the biology. Each Snacc is a `NEP-171`/`NEP-177` NFT that holds its own `$SNACC` balance and inventory, has to be fed to stay alive, and can be harvested by anyone once it has fainted. Each row ties a law of cell biology to a method or constant of `snacc-v001.testnet` and to a transaction you can open (full hashes, caveats and what is not proven: [Live evidence](#live-evidence-testnet)):
 
-| # | Law of the cell | In the contract (method / constant) | Proof (testnet) |
+| # | Law of the cell | In the contract (method / constant) | Proof (transaction) |
 | --- | --- | --- | --- |
 | L1 | Cytoplasm: a cell has its own contents | each NFT holds `$SNACC` and an inventory; hatching (`incubate_strain`) sends 20% of the stake to The Pantry (`STAKE_TREASURY_BPS 2000`) | [`5JCAmSL7…`](https://testnet.nearblocks.io/txns/5JCAmSL7pLTV8mShrNuEtG5WLPkCqKkYCZBf5WGtQ2wY) |
 | L2 | Nutrient uptake → ATP | `feed_strain` → event `atp_minted` | [`4hnA4pEU…`](https://testnet.nearblocks.io/txns/4hnA4pEUqghdtN8WycJJXCnSYQSEZ9F5DQamAuEub3GF) |
@@ -21,6 +19,10 @@ We did not paint biology on a memecoin; the constants are the biology. Each Snac
 | L11 | Conservation of mass | `ft_total_supply` = minted − burned; `get_global_solvency` drift 0 | view calls and `npm run verify:thesis` (F-02) |
 
 *sandbox* = a real testnet transaction with a caveat (sandbox clock, self-funded fee, one epoch). A row without a hash is a view call or a unit test, not a live transaction.
+
+## Status, 2026-11-14
+
+NEAR **testnet only** (nothing is on mainnet) · tracks `memecoins` + `nfts` · contract `snacc-v001.testnet` · 51 rehearsal transactions and 22/22 rehearsal checks, with their [claim limits](#claim-limits-read-before-the-numbers) · `$SNACC` testnet has no monetary value · no testnet hash means no live claim. Full evidence, deployment status and what is **not yet** done: [Live evidence](#live-evidence-testnet).
 
 ## How it fits together
 
