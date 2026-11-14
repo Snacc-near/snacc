@@ -2,7 +2,7 @@
 
 **Snacc ($SNACC): NFTs that eat a memecoin. Feed your Snacc or it gets snacked.**
 
-*This document is standalone — everything you need to understand Snacc end-to-end is here, with no references to other documents. Last updated: November 7, 2026.*
+*This document is standalone — everything you need to understand Snacc end-to-end is here, with no references to other documents. Last updated: November 7, 2026 (the one-tap play and starter-pack passages were corrected on November 14, 2026).*
 
 ---
 
@@ -25,7 +25,7 @@ Based on case studies of collapsed on-chain game tokens and first-generation mem
 3. **On-chain strategies/recipes always leak.** As soon as a winning formula exists, every transaction parameter is visible in the explorer and copied by bots within one block.
 4. **Wallet-popup friction kills the game loop.** Signing repeated transactions makes an economy game unplayable smoothly.
 
-Snacc answers all four: an automatic monetary thermostat, a balance-sheet NFT, secret recipe execution in the TEE, and popup-free play sessions (*signless*).
+Snacc answers all four: an automatic monetary thermostat, a balance-sheet NFT, secret recipe execution in the TEE, and *one-tap play*: after one wallet approval, the deposit-free game actions go out without a popup each time (hatching and every action that attaches NEAR still use the wallet).
 
 ---
 
@@ -56,7 +56,7 @@ Every **Homunculus Strain** is an NFT (`NEP-171`) with:
 
 ## 4. How to play (one epoch in a player's life)
 
-1. **Popup-free onboarding** — sign in with a Function Call Access Key (a *signless* session) and incubate a new Strain: 80% of the deposit becomes Strain capital, 20% goes to the rule-bound treasury.
+1. **Onboarding (hatching always opens the wallet)** — connect a NEAR testnet wallet and incubate a new Strain: 80% of the deposit becomes Strain capital, 20% goes to the rule-bound treasury. Incubation attaches a deposit (the stake), and NEAR does not allow a deposit on a Function Call Access Key, so the hatch is signed in the wallet, and so is the first-call storage deposit. After that the player can switch on *one-tap play* (opt-in, in Settings): one more wallet approval adds a single Function Call Access Key (0.25 NEAR gas allowance, may call only `snacc-v001.testnet`, only the 8 deposit-free game methods), and from then on those actions (feed, allocate `$ATP`, divide, splice, harvest, buy spores, claim dividend, redeem aether) are signed in the browser without a popup. Everything that attaches NEAR (hatch, catalyst fees, `NEP-141`/`NEP-171` transfers, market calls) and the two actions that pay another player (`adopt`, `hostile_takeover_splice`) stay in the wallet; if one-tap cannot be used, the action falls back to one wallet popup and is never sent twice. Hatching without any NEAR (a relayer / meta-transactions) is post-hackathon work and is not built. One-tap play has not yet been tried with a real wallet on testnet.
 2. **Allocate energy (`$ATP`)** — once per epoch, the player splits internal energy across the 3 organel slots: **Mitochondria** (production rises), **Nucleus** (resilience), **Lysosome** (an effect at harvest time). *This is the player's main decision.*
 3. **Transmute** — burn a lower-stage molecule → mint the higher stage × efficiency; every bit of work books `$ATP`.
 4. **Feed (`feed`)** — pay a `$SNACC` fee; this is where the thermostat works: when the economy is in "Fever" part of the fee is automatically **burned**; during "Hypothermia" the treasury **subsidizes**.
@@ -101,9 +101,9 @@ What separates it from a junk memecoin: (1) its volatility has a **playable mech
 
 **Built on NEAR, and only possible on NEAR:**
 
-- **NEAR standards**: `NEP-141` (the `$SNACC` token + burn), `NEP-171` (NFT), `NEP-177` (dynamic SVG metadata), `NEP-245` (9 multi-token molecules), `NEP-297` (events), **Sub-Accounts** (a balance sheet per organism), **Function Call Access Keys** (popup-free play sessions), the native crypto host functions `env::ed25519_verify` + `env::sha256`.
+- **NEAR standards**: `NEP-141` (the `$SNACC` token + burn), `NEP-171` (NFT), `NEP-177` (dynamic SVG metadata), `NEP-245` (9 multi-token molecules), `NEP-297` (events), **Sub-Accounts** (a balance sheet per organism), **Function Call Access Keys** (opt-in one-tap play for the deposit-free game actions; deposit-bearing actions stay in the wallet), the native crypto host functions `env::ed25519_verify` + `env::sha256`.
 - **NEAR AI Cloud TEE** (`cloud-api.near.ai`): the `z-ai/glm-5.3-flash` model runs in an Intel TDX enclave + an NVIDIA confidential GPU with a per-request hardware signature. **The 2-phase zero-trust mechanism**: (1) the request hash is committed on-chain before the AI speaks; (2) once the answer arrives, the contract **recomputes its hash itself inside the WASM**, verifies the enclave's 64-byte ed25519 signature, rejects replays, then parses the result on-chain with a ±15% guardrail. Meaning: **there is no oracle to trust** — even a malicious relayer cannot fake the AI result. Dual redaction (wallet identities removed, recipe dosages hidden behind a SHA-256 commitment) keeps the recipes secret.
-- **Value-add integrations**: Ref/Rhea swap widgets + NEAR Intents (buying `$SNACC` including cross-chain), Meme Cooking (the memecoin launch ritual), Keypom/Linkdrops (`NEP-452` — instant "starter packs" for new players/judges), gas keys (`NEP-611`) & meta-transactions (onboarding without a balance), SocialDB (a social leaderboard), Chain Signatures (cross-chain EVM identities for Strains), FastNEAR/NearBlocks (clickable hash evidence), Phala `dcap-qvl` (an offline verification of the TDX hardware quote).
+- **Value-add integrations**: Ref/Rhea swap widgets + NEAR Intents (buying `$SNACC` including cross-chain), Meme Cooking (the memecoin launch ritual), Keypom/Linkdrops (`NEP-452` — instant "starter packs" for new players/judges; a spike only, no player flow yet), gas keys (`NEP-611`) & meta-transactions (onboarding without a balance; a post-hackathon plan, not built), SocialDB (a social leaderboard), Chain Signatures (cross-chain EVM identities for Strains), FastNEAR/NearBlocks (clickable hash evidence), Phala `dcap-qvl` (an offline verification of the TDX hardware quote).
 - **The stack**: Rust (`near-sdk 5.29.1`, `rustc 1.99.1`) for the single atomic `snacc-v001.near` contract; TypeScript (the SDK, oracle-tee, the backend indexer); React + Vite (the cell-cultivation game: isometric Colony Plate arena + Cell Lab bio-reactor, demo/live modes, NEAR testnet wallet login and signed game actions, deployed on Vercel). A **polyrepo** architecture: `contracts`, `oracle-tee`, `sdk`, `backend`, `frontend`, `scripts` + the umbrella repo.
 
 ---
@@ -143,7 +143,7 @@ When activity surges the supply is automatically burned, when it quiets it is au
 Secret recipes are a player's competitive advantage; only a TEE can evaluate them without leaking them, and only NEAR can verify the result's authenticity directly in the contract. The chain is real: AI → production efficiency → energy → product → dividends.
 
 **How do I try it?**
-A public testnet rehearsal will open with a "starter pack" link (click → you instantly own a Strain) ahead of the demo, along with a one-command verification anyone can run to check all of the above.
+The game is deployed and playable on NEAR testnet only: demo mode needs no wallet, live mode reads the testnet contract, and a NEAR testnet wallet signs the game actions (a new account needs testnet NEAR from the NEAR testnet faucet first). A one-click "starter pack" link that hands a new player a Strain is a plan, not built. The testnet "starter pack" that does exist (a faucet function that sends a small amount of testnet NEAR to a new account) is deployed but not enabled yet, because its faucet account secret is not configured. A one-command verification of the committed evidence (`npm run verify:thesis`, `npm run demo:replay`) is available from the umbrella repo.
 
 ---
 

@@ -10,8 +10,8 @@
 | [`contracts`](https://github.com/Snacc-near/contracts) | `M1` + `M2` | The `snacc-v001.testnet` Rust contract (`near-sdk =5.29.1`, `rustc 1.99.1`) — all mechanics | `VC-001..006` merged, 53 tests |
 | [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | `M3` | The TEE client + the ed25519 verifier + deterministic local redaction (Layer 1, `ADR-05`); the `/v1/privacy/redact` cloud call is attempted with *graceful fallback* — that endpoint 404s for `glm-5.3-flash` (Spike S2.2), so Layer 2 never runs on this model | `TEE-101..104` merged, 14 tests |
 | [`sdk`](https://github.com/Snacc-near/sdk) | `M4` | `lab-sdk`: the NEP-297 event parser; `SnaccClient` + Function Call Keys to follow | `SDK-107..108` merged, 15 tests |
-| [`backend`](https://github.com/Snacc-near/backend) | `M5` | The `NEP-297` indexer + the `/api/crucible/*` API; `supabase/`: player-profile migrations and Edge Functions (`near-auth`, `record-tx`, `notify-scan`, `starter-pack`) | scaffold (`INT-101..108` in progress); the `supabase/` part is merged but not deployed yet |
-| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | the landing page and the cell-cultivation game UI: isometric Colony Plate arena + Cell Lab bio-reactor (12 mechanism animations), keycap HUD, demo/live modes, NEAR wallet login (NEAR Connect, optional Privy email login) and signed testnet game actions | deployed at https://snacc-nu.vercel.app (game at `/app`); payloads of hatch, feed, allocate ATP and divide proven on chain (CLI-signed, README "On-chain proof"); UI wallet flow not yet exercised on chain; profile features not deployed yet |
+| [`backend`](https://github.com/Snacc-near/backend) | `M5` | The `NEP-297` indexer + the `/api/crucible/*` API; `supabase/`: player-profile migrations and Edge Functions (`near-auth`, `record-tx`, `notify-scan`, `starter-pack`, `track`, `chain-index`, `push`, `push-dispatch`) | scaffold (`INT-101..108` in progress); the `supabase/` part is deployed (starter pack not enabled: no faucet secret yet; account deletion migration not applied) |
+| [`frontend`](https://github.com/Snacc-near/frontend) | `M6` | the landing page and the cell-cultivation game UI: isometric Colony Plate arena + Cell Lab bio-reactor (12 mechanism animations), keycap HUD, demo/live modes, NEAR wallet login (NEAR Connect, optional Privy email login) and signed testnet game actions | deployed at https://snacc-nu.vercel.app (game at `/app`); payloads of hatch, feed, allocate ATP and divide proven on chain (CLI-signed, README "On-chain proof"); UI wallet flow not yet exercised on chain; profile features live (Supabase, off-chain); opt-in one-tap play and a Market window (`snacc-market.testnet`) in the build, neither tried with a real wallet |
 | [`scripts`](https://github.com/Snacc-near/scripts) | `M7` | `verify:thesis`, `demo:replay`, `gladi:retry`, economic simulations | active |
 
 ## 2. The four mechanism layers
@@ -28,7 +28,7 @@
 ## 3. The main data flows
 
 ```
-Alkemis (E1) --Function Call Keys (0-popup)--> frontend (M6)
+Alkemis (E1) --Function Call Keys (opt-in one-tap, deposit-free actions only)--> frontend (M6)
     --call--> snacc-v001.testnet (M1: state D1-D8, event NEP-297 -> D9)
     --Stage 1 redaction--> oracle-tee (M3) --POST /v1/chat/completions--> NEAR AI Cloud TEE (E3)
     <--{chat_id, signature ed25519}--  E3
