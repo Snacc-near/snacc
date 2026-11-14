@@ -1,0 +1,106 @@
+---
+title: The NPC merchants
+description: Three on-chain NPC merchants quote and sell spores at a scarcity price, so the economy has a counterparty even with one player. How the price works, npc_buy_spores, and what the NPCs do not do.
+icon: Bot
+---
+
+Snacc has three non-player merchants. They are records inside the contract (`snacc-v001.testnet`), so a single player always has someone to trade with. NEAR **testnet only**.
+
+| `npc_id` | Bio-Lab name | Target spore stock |
+| --- | --- | --- |
+| `npc-extractor` | Pyre-X | 500 |
+| `npc-central-arb` | Myco-7 | 1000 |
+| `npc-vulture-ma` | Void-0 | 300 |
+
+Each NPC starts with its target stock of `mt:spore-ignis`, an empty `$SNACC` reserve and a base price of 100. All three use the same price formula and differ only in the target stock and the name.
+
+<Callout type="info" title="Rules, not AI">
+"Autonomous" here means that nobody operates them. An NPC is a state record and a fixed formula. It is not a language model, and it does not decide anything. The "reasoning tooltip" in the quote is a text template filled with the current numbers.
+</Callout>
+
+## The scarcity price
+
+An NPC prices the next sale by how empty its shelf would be afterwards:
+
+```text
+stock_after = stock - buy_amount
+unit_price  = max(1, floor(base_price * target_stock / max(stock_after, 1)))
+total_cost  = unit_price * buy_amount
+```
+
+The fewer spores the NPC would have left, the higher the unit price. At the target stock the price is the base price, 100. For `npc-extractor` (target 500, stock 500):
+
+| `buy_amount` | Stock after | Unit price | Total cost |
+| --- | --- | --- | --- |
+| 1 | 499 | 100 | 100 |
+| 50 | 450 | 111 | 5,550 |
+| 100 | 400 | 125 | 12,500 |
+| 250 | 250 | 200 | 50,000 |
+| 400 | 100 | 500 | 200,000 |
+
+The 50 spore row matches the purchase run on testnet (unit price 111, total 5550). The unit price applies to **all** units of one purchase, based on the stock after the whole purchase.
+
+Prices are in the smallest `$SNACC` unit. The token has 24 decimals, so a price of 100 is 10^-22 `$SNACC`. At that scale a purchase costs almost nothing, and the curve is a mechanic to see, not a cost to plan around.
+
+## Quote and buy
+
+Two methods:
+
+- **`npc_quote_spores(npc_id, buy_amount)`** is a view. It returns the unit price, the total cost, the stock after the purchase, the current `crucible_temp_mk` and the `reasoning_tooltip`. `get_npc(npc_id)` returns the NPC record: `snacc_reserve`, `spores_stock`, `target_spores_stock`, `base_spore_price`, `trades_executed`.
+- **`npc_buy_spores(strain_id, npc_id, buy_amount)`** buys `mt:spore-ignis` and pays from the Snacc's own stomach. You must own the Snacc. It needs no attached NEAR and no `$ATP`, so it is one of the eight deposit-free actions that one-tap play can send (see [One-tap play](/docs/one-tap)).
+
+{/* Diagram checked against: vault notes "Snacc - Keputusan Desain" (autonomous NPCs), "Snacc - Model Data" (Kamus Angka Resmi: NPC ids and names, NpcMerchantAgent), "Snacc - Diagram Konseptual";
+    the vault describes two-way liquidity and "AI" NPCs, the code has a one-way sale by a fixed formula;
+    code: contracts snacc/src/lib.rs spawn_npcs, npc_quote_internal, npc_quote_spores, npc_buy_spores, get_npc; snacc/src/state.rs NpcMerchantAgent, NpcQuoteView, constants P_BASE, NPC_TARGET_*. */}
+
+```pele
+flowchart TB
+  A(["npc_buy_spores(strain_id, npc_id, buy_amount)"]) --> B{"You own the Snacc,<br/>amount above 0?"}
+  B -->|"no"| X1["ERR_NOT_OWNED_BY_CALLEE<br/>or ERR_BAD_AMOUNT"]
+  B -->|"yes"| C{"NPC exists and<br/>has enough stock?"}
+  C -->|"no"| X2["ERR_NPC_UNKNOWN<br/>or ERR_NPC_OUT_OF_STOCK"]
+  C -->|"yes"| D["Price the sale at the stock<br/>left after the purchase"]
+  D --> E{"Stomach holds<br/>the total cost?"}
+  E -->|"no"| X3["ERR_INSUFFICIENT_BALANCE"]
+  E -->|"yes"| F["Stomach pays the total cost<br/>into the NPC reserve"]
+  F --> G["NPC stock goes down,<br/>spores join the Snacc's inventory"]
+  G --> H(["npc_spores_bought"])
+```
+
+The trade conserves everything exactly: what the stomach loses is what the NPC reserve gains, and the spores the NPC loses are the spores the Snacc gains. The trade does not add to the central bank's volume, costs no `$ATP`, and does not feed the Snacc or change its vitality.
+
+{/* Diagram checked against: vault notes "Snacc - Sequence F2 Transmutasi Rantai Pasok NEP-245" (why a Fermenter needs ignis spores), "Snacc - Katalog Molekul dan Organisme";
+    code: contracts snacc/src/lib.rs transmute_spores_to_enzyme (recipe priority), extract_spores, npc_buy_spores. */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor P as Player
+  participant C as snacc-v001.testnet
+  participant N as NPC record
+  P->>C: npc_quote_spores(npc-extractor, 50), a view
+  C->>N: read stock and base price
+  N-->>P: unit price 111, total 5550, stock after 450
+  P->>C: npc_buy_spores(strain_id, npc-extractor, 50)
+  C->>N: reserve + 5550, stock - 50, trades + 1
+  C-->>P: 50 mt:spore-ignis in the Snacc's inventory
+  P->>C: transmute_spores_to_enzyme (a Fermenter)
+  C-->>P: 2 spores per batch become amalgam
+```
+
+Why buy spores? A Fermenter needs `mt:spore-ignis` to make `mt:enzyme-amalgam`, the most used enzyme. An Extractor makes 1 spore per `extract_spores` call and pays `$ATP` and a catalyst fee for each, while an NPC sells a batch in one deposit-free call.
+
+## What the NPCs do not do
+
+- **They only sell, and only ignis spores.** There is no method to sell to an NPC, and the vault's idea of two-way liquidity is not built.
+- **They never restock.** The stock only goes down, and no method refills it. A sold-out NPC answers `ERR_NPC_OUT_OF_STOCK`.
+- **They keep what they earn.** The `snacc_reserve` only grows. No method pays it out. It is counted in the solvency view `get_global_solvency` as `sum_npc_reserve`.
+- **They do not trade on their own.** An NPC acts only when a player calls `npc_buy_spores`. The `wallet_account` field is a label, not an account that signs anything.
+
+## Seen on testnet
+
+| What | Transaction |
+| --- | --- |
+| `npc_buy_spores` of 50 spores from `npc-extractor`: `npc_spores_bought` with `unit_price` 111 and `total_cost` 5550 | [`2VCzPuL5…`](https://testnet.nearblocks.io/txns/2VCzPuL5imnFThJC479mzpF6mcQDcz8nhUvpmkvV1RFg) |
+
+After that trade `get_npc` returned `spores_stock` 450, `snacc_reserve` 5550 and `trades_executed` 1. This was signed from a script, not through the app's wallet.

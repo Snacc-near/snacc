@@ -1,0 +1,154 @@
+---
+title: Colony actions
+description: Divide, splice, adopt, hostile takeover and harvest. What each action does to a Snacc, what it costs, the colony fences MAX_COLONY_SIZE and MAX_GENERATION, and the divide gate.
+icon: GitFork
+---
+
+A Snacc is a small balance sheet: a stomach of `$SNACC`, an inventory, `$ATP` and a vitality number. Players grow colonies of them, merge them, rescue weak ones, buy out distressed ones and harvest starved ones. This page covers the five colony actions and the rules that fence them. Names are copied from the contract (`snacc-v001.testnet`). NEAR **testnet only**.
+
+## Which action fits which Snacc
+
+What other players may do to a Snacc depends on its **solvency tier**, which comes from its effective vitality (see [The Snacc organism](/docs/organism)). A healthy Snacc cannot be touched by anyone but its owner.
+
+{/* Diagram checked against: vault notes "Snacc - Fitur F5 Chimera Genetic Splicing M&A", "Snacc - Fitur F6 Metabolic Lysis dan Liquidation Harvest",
+    "Snacc - Koloni Sel dan Keterlibatan User" (Kamus Angka Resmi in "Snacc - Model Data": tiers, MAX_COLONY_SIZE, MAX_GENERATION);
+    code: contracts snacc/src/state.rs (SolvencyTier, solvency_tier), snacc/src/lib.rs (divide_strain, splice_strains, adopt,
+    hostile_takeover_splice, harvest_starving_strain, feed_strain). */}
+
+```pele
+flowchart TB
+  S(["A Snacc"]) --> Q{"Effective vitality?"}
+  Q -->|"above 2000<br/>Tier1Healthy"| H["Only the owner acts:<br/>feed, divide_strain, splice_strains<br/>Other players cannot touch it"]
+  Q -->|"1 to 2000<br/>Tier2Chapter11Distressed"| D["Any player may:<br/>adopt or hostile_takeover_splice<br/>The owner can still feed, divide, splice"]
+  Q -->|"0<br/>Tier3Chapter7Insolvent"| I["Anyone may:<br/>harvest_starving_strain<br/>The owner can no longer feed or divide it"]
+  D -.->|"owner feeds it back above 2000"| H
+```
+
+| Action | Who calls it | Target must be | What moves | `$ATP` cost |
+| --- | --- | --- | --- | --- |
+| `divide_strain` | the owner | alive, effective vitality above 0 | half of the stomach, vitality and `mt:spore-ignis` go to a new child | 3 (paid by the parent) |
+| `splice_strains` | the owner of both | two living Snaccs of one owner | everything of the absorbed Snacc moves into the dominant one | 5 (paid by the dominant) |
+| `adopt` | any player | Distressed (1 to 2000) | book value is paid to the old owner and the Snacc changes owner | none |
+| `hostile_takeover_splice` | any player | Distressed (1 to 2000) | book value plus 15% is paid, the target is absorbed into your raider | 10 (paid by the raider) |
+| `harvest_starving_strain` | anyone | starving (0) | 10% of the stomach to the caller, 90% to the Pantry, molecules burned | none |
+
+`adopt` and `hostile_takeover_splice` need a living Snacc of your own as the payer (`raider_strain_id`). `harvest_starving_strain` needs no Snacc of your own: the bounty is credited to your account.
+
+## Divide: cell division
+
+`divide_strain(strain_id)` splits one Snacc into two.
+
+- The **child** gets half of the stomach (rounded down), half of the vitality, half of the `mt:spore-ignis` and half of each organelle level. The parent keeps the remainder, so nothing is created or lost.
+- The child **inherits the role**, `efficiency_bps`, `bmr_per_hour` and any `phenotype_trait`. It is one generation older and starts with 50 `$ATP`. The parent pays 3 `$ATP`.
+- The child joins your colony and gets its own NFT. The event is `strain_divided`.
+- The parent must be alive and not starving.
+
+### The population fences
+
+Division is the only free way to make a Snacc, so the contract fences it. Three rules apply, and a failed check reverts the whole transaction:
+
+| Rule | Constant | Error | Meaning |
+| --- | --- | --- | --- |
+| Colony size | `MAX_COLONY_SIZE = 5` | `ERR_COLONY_FULL` | You may hold at most 5 living Snaccs. Dead ones (`Liquidated`, `SplicedBurned`) do not count |
+| Generation | `MAX_GENERATION = 8` | `ERR_MAX_GENERATION` | The child would be generation 9 or more. Splice and takeover obey the same limit |
+| Divide gate | `total_divides` at most `total_mergers + total_lyses` | `ERR_BIRTHS_EXCEEDED` | Divisions in the whole game cannot outrun mergers and harvests |
+
+The divide gate is global, not per player. `total_mergers` counts every `splice_strains` and `hostile_takeover_splice`, and `total_lyses` counts every `harvest_starving_strain`. A new Snacc made by paid hatching (`incubate_strain`) is free because real NEAR enters the game. Free division needs a "budget" that merges and harvests create. `adopt` does not add to the budget.
+
+{/* Diagram checked against: vault notes "Snacc - Koloni Sel dan Keterlibatan User", "Snacc - Siklus Hidup Sel dan Metabolisme" (Kamus Angka Resmi: pagar koloni);
+    the vault says births must stay at most merges plus lyses, which would block the first hatch, so the code applies the gate to divisions only;
+    code: contracts snacc/src/lib.rs divide_strain (colony_active_count, child_gen, pay_atp, total_divides, ERR_BIRTHS_EXCEEDED),
+    snacc/src/state.rs constants MAX_COLONY_SIZE, MAX_GENERATION, INITIAL_ATP. */}
+
+```pele
+flowchart TB
+  A(["divide_strain(strain_id)"]) --> B{"Caller owns it,<br/>and it is alive?"}
+  B -->|"no"| X1["ERR_NOT_OWNED_BY_CALLEE<br/>or ERR_STRAIN_ALREADY_SPLICED"]
+  B -->|"yes"| C{"Living Snaccs in the colony<br/>below MAX_COLONY_SIZE (5)?"}
+  C -->|"no"| X2["ERR_COLONY_FULL"]
+  C -->|"yes"| D{"Child generation<br/>at most MAX_GENERATION (8)?"}
+  D -->|"no"| X3["ERR_MAX_GENERATION"]
+  D -->|"yes"| E{"Parent not starving,<br/>at least 3 ATP?"}
+  E -->|"no"| X4["ERR_STRAIN_STARVING<br/>or ERR_NOT_ENOUGH_ATP"]
+  E -->|"yes"| F{"total_divides + 1 at most<br/>total_mergers + total_lyses?"}
+  F -->|"no"| X5["ERR_BIRTHS_EXCEEDED"]
+  F -->|"yes"| G(["Child born, strain_divided"])
+```
+
+## Splice: voluntary merger
+
+`splice_strains(dominant_id, absorbed_id)` merges two of **your** Snaccs into one.
+
+- Both must have the same owner (`ERR_NOT_SAME_OWNER`), be different (`ERR_SAME_STRAIN`) and be alive (`ERR_STRAIN_ALREADY_SPLICED` for a dead one). The dominant one must not be starving.
+- The dominant Snacc takes 97.5% of the absorbed stomach. The other 2.5% (`MERGER_TAX_BPS = 250`) goes to the Pantry. All nine molecule balances move over.
+- Roles combine as a bitmask, so a Snacc can end up working in several stages. Efficiency rises by 800 bps, the BMR falls by 15%, the generation goes up by one, and each organelle slot takes the higher of the two levels. The dominant Snacc can allocate `$ATP` again in the same epoch.
+- The absorbed Snacc becomes `SplicedBurned` and cannot be used again. The event is `strains_spliced`.
+
+## Adopt: take over a distressed Snacc
+
+`adopt(target_id, raider_strain_id, expected_target_nonce)` rescues someone else's Distressed Snacc and moves it into your colony.
+
+- The target must have effective vitality 1 to 2000 (`ERR_NOT_DISTRESSED`) and be alive (`ERR_ALREADY_LIQUIDATED`). Your colony must have room (`ERR_COLONY_FULL`).
+- You pay the **book value** from the stomach of `raider_strain_id`: the target's stomach plus all its molecules, valued at 1 `$SNACC` per unit. 100% of it goes to the old owner's account balance, with no premium and no Pantry cut.
+- The target keeps its stomach, inventory and organelles, and **its vitality is unchanged**. Adoption does not feed it, so you still need to feed it.
+- `expected_target_nonce` is the `state_nonce` you saw. If the Snacc changed in between, the call fails with `ERR_STATE_NONCE_CHANGED_SELLER_DRAIN_BLOCKED`, and a Snacc with an unfinished callback fails with `ERR_PENDING_ASYNC_CALLBACK_LOCKED`. This stops an owner from draining a Snacc right before a sale. The event is `strain_adopted`.
+
+## Hostile takeover
+
+`hostile_takeover_splice(raider_strain_id, distressed_target_id, expected_target_nonce)` absorbs a Distressed Snacc into one of your own, instead of just moving it.
+
+- The same target rules and the same nonce guard apply as for `adopt`.
+- The raider pays **book value plus 15%** (`HOSTILE_PREMIUM_BPS = 1500`) from its own stomach. 95% goes to the old owner's account balance and 5% to the Pantry. If the raider's stomach is too small, the call fails with `ERR_INSUFFICIENT_BALANCE`.
+- The raider absorbs the whole stomach and inventory, combines the role bits, takes the higher efficiency and organelle levels, and goes up one generation (`ERR_MAX_GENERATION` at the limit). The target becomes `SplicedBurned`. The raider pays 10 `$ATP`.
+- The call returns the payment and the updated raider. The event is `hostile_takeover_spliced`.
+
+What you buy is not a balance arbitrage: the 15% premium is a cost. You buy the extra role bits and the molecules, and you spend one of your generation steps.
+
+## Harvest: the starved Snacc
+
+`harvest_starving_strain(target_id)` can be called by **anyone** once a Snacc's effective vitality is exactly 0 (`ERR_STRAIN_NOT_INSOLVENT` otherwise).
+
+- 10% of the stomach (`LIQUIDATOR_BOUNTY_BPS = 1000`) is credited to the caller's account balance, the `ft_balance_of` ledger. 90% goes to the Pantry.
+- All molecules of the Snacc are burned. Its status becomes `Liquidated`, and its NFT can no longer be transferred.
+- The cash that changes hands counts as activity for the central bank, and 90% of the proceeds powers a short **Nutrient Burst**: a discount on feeding for one epoch (see [CrucibleTemp](/docs/crucible-temp)).
+- The events are `strain_liquidated` and `nutrient_burst_released`.
+
+The game text calls this "snacking" a Snacc. There is no contract method named `snack`; the method is `harvest_starving_strain`.
+
+## Where the `$SNACC` goes
+
+{/* Diagram checked against: vault notes "Snacc - Fitur F5 Chimera Genetic Splicing M&A", "Snacc - Fitur F6 Metabolic Lysis dan Liquidation Harvest",
+    "Snacc - DFD Level 2 F5 Chimera Genetic Splicing M&A", "Snacc - DFD Level 2 F6 Metabolic Lysis dan Liquidation Harvest";
+    code: contracts snacc/src/lib.rs splice_strains (tax), adopt (book value), hostile_takeover_splice (HOSTILE_SELLER_BPS, HOSTILE_TREASURY_BPS),
+    harvest_starving_strain (bounty, recovery); snacc/src/state.rs constants. */}
+
+```pele
+flowchart LR
+  subgraph own["Your colony"]
+    RS["Raider stomach"]
+    DS["Dominant stomach"]
+  end
+  AB["Absorbed stomach"] -->|"97.5%, splice_strains"| DS
+  AB -->|"2.5% merger tax"| P[("Pantry")]
+  RS -->|"adopt: 100% of book value"| OO(["Old owner<br/>account balance"])
+  RS -->|"takeover: 95% of book + 15%"| OO
+  RS -->|"takeover: 5%"| P
+  ST["Starved stomach"] -->|"harvest: 10%"| CALLER(["Caller<br/>account balance"])
+  ST -->|"harvest: 90%"| P
+```
+
+## Seen on testnet
+
+Hashes from the committed testnet run (contract state of 2026-11-09). Hostile takeover, adopt and harvest ran with a compressed clock (the owner-only sandbox clock), so the waiting was skipped but the rules were real. See [Evidence](/docs/evidence) for the full list and what is not proven.
+
+| Action | What the chain recorded | Transaction |
+| --- | --- | --- |
+| `splice_strains` | `strains_spliced` with a 2.5% `merger_tax` | [`4ABtdBdj…`](https://testnet.nearblocks.io/txns/4ABtdBdjYkynQXXMsYD8ZKUwMtNAWX1wgEpREsX3i4nH) |
+| `divide_strain` | `strain_divided`, parent 1 and child 6 | [`GVwhXD6k…`](https://testnet.nearblocks.io/txns/GVwhXD6kYyb9qDe2nDZMB6RUgsK5FqqTN51kVuYgnYWf) |
+| `hostile_takeover_splice` | `hostile_takeover_spliced`, payment 115% of book value, 95% to the seller | [`4o4qwoGZ…`](https://testnet.nearblocks.io/txns/4o4qwoGZtR7HE5E3VnjQZpXwDicpa9QVBzXHS1YP2v4f) |
+| `adopt` | `strain_adopted`, book value to the old owner | [`7w3tBNjL…`](https://testnet.nearblocks.io/txns/7w3tBNjLYFXKiUdmXtH1LhponGr6yhu1Q22xCFdLzo34) |
+| `harvest_starving_strain` | `strain_liquidated` with a 10% bounty | [`AhEk4TNN…`](https://testnet.nearblocks.io/txns/AhEk4TNNeTj4orchvXSuPood8vAxTiQNWhZZwSdD9JH9) |
+
+<Callout type="warn" title="What is and is not verified">
+These transactions show that the contract rules work on testnet. They were signed from scripts, not through the app's wallet. The app has buttons for all five actions, but only hatch, feed, allocate and divide have a hash of the app's exact payload. `adopt` and `hostile_takeover_splice` always open the wallet, even with one-tap play on, because they pay another player. See [One-tap play](/docs/one-tap).
+</Callout>

@@ -1,0 +1,123 @@
+---
+title: The Great Feast and the Industrial Dividend Pool
+description: How a daily epoch grades the colony's feeding (the Great Feast) and how burning aether elixirs earns a pro-rata claim on the Industrial Dividend Pool. No payout is guaranteed.
+icon: PartyPopper
+---
+
+Two features run on the same clock, the **epoch**. An epoch is 24 hours of contract time (`EPOCH_DURATION_SEC = 86400`). The **Great Feast** grades how much the whole colony fed during an epoch. The **Industrial Dividend Pool** collects a share of every fee and lets Snaccs that burned `mt:elixir-aether` claim from it afterwards. Neither one promises a payout. `$SNACC` on testnet has no monetary value.
+
+## The epoch clock
+
+Nothing runs on a timer. Anyone can call `advance_epoch()` once the running epoch is over (`ERR_EPOCH_NOT_ENDED` before that). It closes the epoch, takes the dividend snapshot, grades the feast and opens the next one.
+
+{/* Diagram checked against: vault notes "Snacc - Spec Industrial Dividend Pool DK-033 dan DK-044", "Snacc - Diagram Konseptual" (epoch, dividend flow);
+    code: contracts snacc/src/lib.rs advance_epoch, synthesize_and_redeem_aether, claim_industrial_dividend, feed_strain;
+    snacc/src/state.rs constants EPOCH_DURATION_SEC, MAX_DIVIDEND_CLAIM_EPOCHS. */}
+
+```pele
+stateDiagram-v2
+  [*] --> Open: epoch n starts
+  Open --> Open: fees, feeding, aether burns
+  Open --> Closed: advance_epoch after 24 hours
+  Closed --> Claimable: pool receives the inflow of epoch n
+  Claimable --> Claimed: claim_industrial_dividend, once per strain
+  Claimable --> Expired: more than 8 epochs later
+  Claimed --> [*]
+  Expired --> [*]
+  Open: Open, feast volume and aether burns are counted
+  Closed: Closed, feast verdict is emitted
+  Claimable: Claimable, up to 8 epochs back
+```
+
+## The Great Feast
+
+Every successful `feed_strain` adds its **effective fee** to the epoch's feeding volume. At the end of the epoch the contract compares that volume with a target:
+
+- the target is 5% of the total `$SNACC` supply (`FEAST_TARGET_BPS = 500`);
+- the "Goldilocks" band is plus or minus 20% of the target (`FEAST_BAND_BPS = 2000`).
+
+| Verdict | When |
+| --- | --- |
+| `GOLDILOCKS` | the volume is inside the band |
+| `OVERFED` | the volume is above the band |
+| `UNDERFED` | the volume is below the band |
+
+The verdict comes out in the event `feast_result` (`epoch`, `volume`, `target`, `verdict`). While the epoch runs, `get_appetite_meter` shows `feast_volume` against `feast_target`. The contract also keeps a **top 3 feeder** leaderboard per epoch by account (`get_top_feeder(epoch)`), and the app shows it on the Great Feast board.
+
+<Callout type="warn" title="The feast pays nothing on chain today">
+In the current contract the Great Feast only grades the epoch and keeps the leaderboard. It does not pay a bonus or a prize. Token bonuses for a Goldilocks epoch are a design idea, not built. The one epoch closed on testnet graded `UNDERFED`.
+</Callout>
+
+## The Industrial Dividend Pool
+
+### Where the money comes from
+
+Every fee that goes through the central bank (see [CrucibleTemp](/docs/crucible-temp)) is split. After any Fever burn, **50%** (`DIVIDEND_INFLOW_BPS = 5000`) goes to the running epoch's **dividend inflow** and 50% goes to the Pantry. The event `dividend_inflow` records each split. When the epoch closes, its inflow is added to the `industrial_dividend_pool`.
+
+The pool only ever moves existing `$SNACC`. A claim does not mint anything, and a payout can never be larger than the pool balance.
+
+### Two steps: burn, then claim
+
+Paying the first player who shows up would let one player drain a whole epoch. So the claim is **pro-rata and in two steps**:
+
+1. **Burn during the epoch.** `synthesize_and_redeem_aether(strain_id, amount)` burns `mt:elixir-aether` and records your contribution for the running epoch. You must own the Snacc, it needs the Synthesizer role bit (`ERR_ROLE_LOCKED_NEEDS_SYNTHESIZER_GENE`), it must not be starving, and you must hold at least `amount` aether (`ERR_INSUFFICIENT_AETHER`). The event is `aether_burned_for_dividend`. Nothing is paid yet.
+2. **Claim after the epoch closes.** `claim_industrial_dividend(strain_id, epoch)` pays:
+
+```text
+payout = contribution * epoch_inflow / max(total_aether_burned_in_epoch, 1)
+```
+
+The payout goes into the Snacc's **stomach**, not into a wallet. It is capped at the pool balance (`ERR_DIVIDEND_POOL_EMPTY` if there is nothing to pay).
+
+{/* Diagram checked against: vault note "Snacc - Spec Industrial Dividend Pool DK-033 dan DK-044" (two phases, pro-rata); code: contracts snacc/src/lib.rs
+    accrue_dividend_inflow, synthesize_and_redeem_aether, advance_epoch (epoch_dividend_totals), claim_industrial_dividend, synthesize_elixir (aether recipe and TEE gate). */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor P as Player
+  participant C as Contract
+  participant POOL as Dividend pool
+  Note over P,C: Epoch n is open
+  C->>POOL: every fee, 50% of the rest goes to the inflow of epoch n
+  P->>C: synthesize_and_redeem_aether(strain_id, amount)
+  C->>C: burn aether, record the contribution for epoch n
+  Note over P,C: 24 hours later
+  P->>C: advance_epoch()
+  C->>POOL: inflow of epoch n joins the pool, epoch n is closed
+  P->>C: claim_industrial_dividend(strain_id, n)
+  C->>C: payout = contribution x inflow / total burned
+  C-->>P: payout into the Snacc's stomach, dividend_claimed
+```
+
+### The claim rules
+
+| Rule | Error |
+| --- | --- |
+| The epoch must be closed (`epoch < last_closed_epoch`) | `ERR_EPOCH_NOT_CLOSED` |
+| At most 8 epochs back (`MAX_DIVIDEND_CLAIM_EPOCHS = 8`) | `ERR_DIVIDEND_CLAIM_EXPIRED` |
+| Once per epoch and strain | `ERR_DIVIDEND_ALREADY_CLAIMED` |
+| Only the Snacc's owner | `ERR_NOT_STRAIN_OWNER` |
+| The pool must hold a payout above 0 | `ERR_DIVIDEND_POOL_EMPTY` |
+
+Read the state with `get_dividend_pool()` (pool, running inflow, last closed epoch), `get_epoch_dividend_rate(epoch)` and `get_dividend_contribution(epoch, strain_id)`, which returns your burned amount and whether it was claimed.
+
+### Getting aether
+
+`mt:elixir-aether` is the rarest molecule. `synthesize_elixir` makes it from 2 `mt:enzyme-amalgam` and 1 `mt:enzyme-synthase` per batch, needs the Synthesizer role, costs 3 `$ATP`, and works **only after a successful TEE mutation** of that Snacc (otherwise `ERR_REQUIRES_TEE_ATTESTATION`). See [TEE verification](/docs/tee) and [The Snacc organism](/docs/organism).
+
+## No guarantee
+
+<Callout type="warn" title="Work and redistribution, not income">
+The pool pays out only the fees that other players' actions produced, only to Snaccs that burned aether in that epoch, and only in `$SNACC` that has no monetary value on testnet. A quiet epoch has a small inflow. A sole contributor takes the whole inflow of an epoch, and a crowded epoch is shared. Nobody can predict the amount. Aether costs real work: a TEE mutation, enzymes, `$ATP` and fees. Profit here means work plus redistribution, never a promise.
+</Callout>
+
+What was verified on testnet: one epoch closed, and one Snacc burned aether and claimed from it. That run had a single contributor, so it shows the mechanics and not a return. More than one epoch of dividends, claim expiry and several contributors are covered by unit tests only.
+
+| What | Transaction |
+| --- | --- |
+| Aether burned for the dividend, epoch 0 | [`GfqatLA7…`](https://testnet.nearblocks.io/txns/GfqatLA7TMR9mGBsA4Fo9Z76dHWTKABJhu4v6nVCmXzG) |
+| `advance_epoch` closes epoch 0 (events `feast_result` and `epoch_dividend_closed`) | [`9F4KGd9b…`](https://testnet.nearblocks.io/txns/9F4KGd9bZXwtQEpvJGQYcx2Vz7fsa9LbyyTySxYhfLjW) |
+| `claim_industrial_dividend`, strain 5, epoch 0 | [`6hPrMTJu…`](https://testnet.nearblocks.io/txns/6hPrMTJubZTcRATiGQxYZNxcL4WGXA3KVpgHqtvoBWFq) |
+
+The epoch close ran after the owner-only sandbox clock moved contract time forward 24 hours. The 24 hour gate is a contract rule, and nobody waited in real time. See [Evidence](/docs/evidence).

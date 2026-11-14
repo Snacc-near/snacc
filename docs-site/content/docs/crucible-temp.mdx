@@ -1,0 +1,133 @@
+---
+title: CrucibleTemp, the central bank
+description: The reactive central bank of Snacc. A temperature reading of the colony's activity burns part of each fee in a Fever zone and pays a rebate from the Pantry in a Hypothermia zone. Thresholds, rules and honest limits.
+icon: Thermometer
+---
+
+`CrucibleTemp` is the reactive central bank of Snacc. It is not a person or a committee. It is a number the contract works out from how busy the colony is, and two rules that act on every fee. When the colony is hot, part of each fee is **burned**. When the colony is cold, the **Pantry** pays a small rebate. `$SNACC` on testnet has no monetary value, and the swings are a game feature, not a promise.
+
+## The temperature
+
+The contract keeps a running activity volume, `volume_epoch`, and reads the temperature in millikelvin (mK):
+
+```text
+CrucibleTemp = floor(1000 * V_decayed / max(total_snacc_supply, 1))
+```
+
+`V_decayed` is the volume minus a slow decay, computed lazily whenever someone reads it, so no keeper or timer is needed. Anyone can read it with the view `get_crucible_temp`, or with `get_appetite_meter` for the zone, the burst and the Great Feast together.
+
+{/* Diagram checked against: vault notes "Snacc - Fitur F4 Bank Sentral Homeostasis dan Reactive Supply SNACC", "Snacc - POV Bank Sentral Homeostasis",
+    "Snacc - DFD Level 2 F4 Bank Sentral Homeostasis dan Reactive Supply SNACC" (Kamus Angka Resmi: Fever 610, Hypothermia 600, VOLUME_SCALE 5);
+    code: contracts snacc/src/lib.rs add_volume_legs, apply_thermostat_fee, feed_strain (atp_volume), harvest_starving_strain (K4 leg),
+    snacc/src/state.rs MacroState (crucible_temp_at, decayed_volume), constants VOLUME_SCALE, P_BASE, ATP_VOLUME_SCALE. */}
+
+```pele
+flowchart LR
+  F["Fees paid:<br/>catalyst fees, feed fees"] -->|"fee amount"| V["volume_epoch"]
+  M["Molecule work:<br/>mint and burn units"] -->|"units x 5 x 100"| V
+  A["ATP minted by feeding"] -->|"ATP x 600000000000000"| V
+  L["Harvest cash:<br/>bounty and recovery"] -->|"amount"| V
+  V -->|"minus 50 per second"| VD["V_decayed"]
+  S["total_snacc_supply"] --> T
+  VD --> T["CrucibleTemp<br/>1000 x V / supply, in mK"]
+  T --> Z{"Zone"}
+  Z -->|"above 610"| FE["Fever"]
+  Z -->|"600 to 610"| NO["Normal"]
+  Z -->|"below 600"| HY["Hypothermia"]
+```
+
+What feeds the volume (all amounts are in yocto units):
+
+- **Fees.** Every fee that enters the thermostat adds its amount: the catalyst fee on `extract_spores`, `transmute_spores_to_enzyme` and `synthesize_elixir`, and the fee `feed_strain` takes from a stomach. The catalyst fee is **attached NEAR** that must equal the argument `snacc_catalyst_fee`. The caller picks the amount: the contract sets no minimum, and the app's default is 0.001 NEAR. The contract books the amount one to one in its own `$SNACC` accounts, and the solvency view counts it as an outside inflow (`total_catalyst_fees`).
+- **Molecule work.** Each molecule unit burned or minted in a stage action adds `units * VOLUME_SCALE * P_BASE`, which is `units * 5 * 100`.
+- **ATP.** `feed_strain` adds `atp_minted * ATP_VOLUME_SCALE`, with `ATP_VOLUME_SCALE = 600000000000000`. So part of the temperature reading is made of `$ATP` that feeding minted.
+- **Harvest cash.** The bounty and the Pantry share of a harvest count as volume.
+
+Rebates, dividends, transfers and the hatching stake are left out on purpose, so the bank cannot feed itself.
+
+A new Snacc adds `$SNACC` supply but no volume, so hatching **cools** the colony. Fees heat it.
+
+## The three zones
+
+| Zone | `crucible_temp` | Contract string | What happens to a fee |
+| --- | --- | --- | --- |
+| Fever | above 610 mK | `FEVER` | 3.5% of the fee is burned (`FEVER_BURN_BPS = 350`) |
+| Normal | 600 to 610 mK | `NORMAL` | no burn and no rebate |
+| Hypothermia | below 600 mK | `HYPO` | the Pantry pays a 2% rebate (`REBATE_BPS = 200`) |
+
+The game calls Fever the "Feeding Frenzy" and Hypothermia "Famine Relief". The thresholds follow the code: **610 mK** for Fever, not the 1400 mK of older design notes (1400 was unreachable, so the burn never ran).
+
+{/* Diagram checked against: vault notes "Snacc - Fitur F4 Bank Sentral Homeostasis dan Reactive Supply SNACC" (the vault text still says 1400 mK in places; Kamus Angka Resmi says 610),
+    "Snacc - Sequence F4 Bank Sentral Homeostasis dan Reactive Supply SNACC"; code: contracts snacc/src/lib.rs zone_at, apply_thermostat_fee (zone_changed event),
+    snacc/src/state.rs MacroZone and constants FEVER_THRESHOLD_MK, HYPOTHERMIA_THRESHOLD_MK. */}
+
+```pele
+stateDiagram-v2
+  [*] --> Normal
+  Normal --> Fever: temperature rises above 610
+  Fever --> Normal: temperature falls to 610 or less
+  Normal --> Hypothermia: temperature falls below 600
+  Hypothermia --> Normal: temperature rises to 600 or more
+  Fever --> Hypothermia: a large drop in one step
+  Hypothermia --> Fever: a large rise in one step
+  Fever: Fever, burn 3.5% of each fee
+  Normal: Normal, no burn and no rebate
+  Hypothermia: Hypothermia, rebate 2% from the Pantry
+```
+
+Whenever a fee moves the colony into another zone, the contract emits `zone_changed` with `from_zone`, `to_zone` and `crucible_temp`. The zone is worked out from the same thresholds everywhere, so the NFT image, the views and the events always agree.
+
+## What happens to a fee
+
+Every fee goes through the same path. The fee is the amount charged by the action, not the whole stake.
+
+{/* Diagram checked against: vault notes "Snacc - DFD Level 2 F4 Bank Sentral Homeostasis dan Reactive Supply SNACC", "Snacc - Spec Industrial Dividend Pool DK-033 dan DK-044"
+    (DIVIDEND_INFLOW_BPS 5000, MAX_EPOCH_TREASURY_DRAIN_BPS 500); code: contracts snacc/src/lib.rs apply_thermostat_fee, accrue_dividend_inflow,
+    snacc/src/state.rs constants FEVER_BURN_BPS, REBATE_BPS, MAX_EPOCH_TREASURY_DRAIN_BPS, DIVIDEND_INFLOW_BPS. */}
+
+```pele
+flowchart TB
+  FEE(["A fee enters the thermostat"]) --> ADD["Add the fee to volume_epoch,<br/>read the temperature, emit zone_changed on a change"]
+  ADD --> ZZ{"Zone"}
+  ZZ -->|"Fever"| BURN["Burn 3.5% of the fee<br/>(1.75% if the Snacc holds<br/>one mt:elixir-homeostasis)"]
+  ZZ -->|"Normal"| SPLIT
+  ZZ -->|"Hypothermia"| SPLIT
+  BURN --> SPLIT["Split the rest:<br/>50% to the dividend inflow<br/>50% to the Pantry"]
+  SPLIT --> HQ{"Hypothermia?"}
+  HQ -->|"no"| DONE(["Done"])
+  HQ -->|"yes"| REB["Rebate: 2% of the fee from the Pantry<br/>to the Snacc's stomach, capped by the<br/>epoch quota and the Pantry balance"]
+  REB --> DONE
+```
+
+The numbers, from the code:
+
+- **The burn.** In Fever, `fee * 350 / 10000` is removed from `total_snacc_supply` and added to `total_snacc_burned`. A Snacc that holds at least one `mt:elixir-homeostasis` pays only half of that burn. The elixir is not used up.
+- **The split.** After any burn, 50% of the rest (`DIVIDEND_INFLOW_BPS = 5000`) goes to the dividend inflow of the running epoch, and 50% to the Pantry. See [The Great Feast and the Industrial Dividend Pool](/docs/feast-dividend).
+- **The rebate.** In Hypothermia the Pantry pays `fee * 200 / 10000` into the stomach of the Snacc that paid. The total rebate in one epoch is capped at 5% of the Pantry balance taken at the start of the epoch (`MAX_EPOCH_TREASURY_DRAIN_BPS = 500`), and never more than the Pantry holds. There is no admin function that withdraws from the Pantry.
+
+## Other things the zone changes
+
+- **Diet discount.** In `transmute_spores_to_enzyme`, a Snacc with the Extractor bit pays a fee 20% lower in Fever, and a Snacc with the Synthesizer bit pays 20% lower in Hypothermia. The event `transmuted` carries `diet_bps`.
+- **Nutrient Burst.** A harvest sets a discount on `feed_strain` for one epoch: `200 bps` plus the harvested share of the supply, at most `2000 bps`. The discount is paid from the same 5% Pantry quota. `get_burst_state` returns the active discount and its end epoch.
+- **Rescue feeding.** Feeding a weak Snacc is cheaper: the fee multiplier rises linearly from 20% at vitality 0 to 100% at vitality 10000.
+- **Dormancy.** When the decayed volume is below 1% of the supply, the feeding fee drops to 50 bps of its value, so a quiet colony is cheap to keep alive.
+- **Risk heat.** `get_risk_heat` is a 0 to 10000 "betting intensity": the temperature as a share of the Fever threshold, plus 1000 while a burst is active and 1000 while the dividend pool holds at least 1% of the supply.
+
+## Honest limits
+
+<Callout type="warn" title="Read the temperature with the scale in mind">
+The decay is `VOLUME_DECAY_PER_SEC = 50`, in the same yocto units as the volume. 50 yocto per second is about 4.3 million yocto per day, roughly 4 x 10^-18 NEAR. Against volumes of 10^22 to 10^24 yocto, the decay barely moves the temperature today. In practice the reading changes when fees arrive and when hatching raises the supply.
+</Callout>
+
+- The 610 and 600 mK thresholds come from a calibration of the economic simulation. In the project's simulation of 10,000 epochs the colony spent about 5.9% of the time in Fever, 93% in Hypothermia and 1.2% in Normal. That is a model result, not live data.
+- On testnet the scale is tiny. The one live Fever firing (the `zone_changed` from `HYPO` to `FEVER` at 916 mK, with the burn halved by a homeostasis elixir) was caused by a catalyst fee that the contract account paid to itself, so it moved no value between players. See [Evidence](/docs/evidence).
+- The read-only backend labels the middle zone `Goldilocks` in `/api/crucible/macro`, while the contract calls it `NORMAL`. They are the same zone. The `ruleBoundTreasury` field there is the Pantry balance snapshot taken at the start of the epoch, not a live balance.
+- This is a thermostat, not a price peg. It does not guarantee any value for `$SNACC`.
+
+## Seen on testnet
+
+| What | Transaction |
+| --- | --- |
+| Fever burn: `zone_changed` `HYPO` to `FEVER` at 916 mK, burn 175 bps (halved by `mt:elixir-homeostasis`) | [`CfBR8pFN…`](https://testnet.nearblocks.io/txns/CfBR8pFNCGAjCAX21pSMQY9rdjQ2cVKonkzacFjmZpM8) |
+| Hypothermia rebate and Nutrient Burst active in a feed, temperature 18 mK, `burst_bps` 360 | [`BXSNviQV…`](https://testnet.nearblocks.io/txns/BXSNviQVcvF7rDVp2sBTrD2nWkH8Nu4JXdMqXRezGo7s) |
+| Harvest releasing the burst: `nutrient_burst_released` | [`AhEk4TNN…`](https://testnet.nearblocks.io/txns/AhEk4TNNeTj4orchvXSuPood8vAxTiQNWhZZwSdD9JH9) |

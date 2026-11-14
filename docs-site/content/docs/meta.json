@@ -1,9 +1,30 @@
 {
   "title": "Snacc Docs",
   "pages": [
+    "---Start---",
     "index",
     "play",
+    "---Concepts---",
     "organism",
-    "architecture"
+    "colony",
+    "architecture",
+    "---Economy---",
+    "crucible-temp",
+    "feast-dividend",
+    "npcs",
+    "---Features---",
+    "tee",
+    "marketplace",
+    "one-tap",
+    "profiles",
+    "---Reference---",
+    "contract-reference",
+    "sdk",
+    "backend-api",
+    "---Project---",
+    "security",
+    "evidence",
+    "faq",
+    "roadmap"
   ]
 }
