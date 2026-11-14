@@ -1,0 +1,118 @@
+---
+title: Play in 60 seconds
+description: Start in demo mode, switch to the live testnet read, then connect a wallet to hatch, feed and divide a Snacc. NEAR testnet only.
+icon: atp
+---
+
+The game is at [snacc-nu.vercel.app/app](https://snacc-nu.vercel.app/app). It runs on NEAR **testnet only**, and `$SNACC` on testnet has no monetary value. You can learn most of it without a wallet.
+
+## Three steps, from safe to signed
+
+{/* Diagram checked against: README of the Snacc umbrella repo (section "Play it": demo, live read, wallet), frontend repo
+    src/help/content.ts (INTRO_STEPS, RULES); code: contracts snacc/src/lib.rs (incubate_strain, feed_strain, divide_strain). */}
+
+```pele
+flowchart TB
+  O(["Open /app"]) --> D["1. demo · simulated<br/>local simulation, no wallet"]
+  D -->|"switch the mode"| L["2. live testnet<br/>contract views and read-only backend, no wallet"]
+  L -->|"connect wallet"| W["3. NEAR wallet or email login<br/>testnet NEAR from the faucet"]
+  W -->|"first signed action"| R["storage_deposit<br/>registers your account"]
+  R --> A(["Hatch, feed, divide"])
+```
+
+### 1. Demo mode: no wallet
+
+Open `/app`. It starts in `demo · simulated`. Tap a cell on the **Colony Plate**, watch the **Cell Lab** bio-reactor open, and press a keycap. Every number comes from a simulation on your device and is labelled as such. Nothing is written to any chain.
+
+### 2. Live read: still no wallet
+
+Switch the mode to `live testnet`. The strains, the `CrucibleTemp` reading and the Great Feast board now come from `snacc-v001.testnet`, through contract views and the read-only backend. Where the chain gives no value, the UI shows `—`. It never invents a number.
+
+### 3. Wallet or email: signed transactions
+
+Press `connect wallet` and pick a NEAR testnet wallet from the NEAR Connect list (for example Meteor or Intear), or use email or social login (Privy). A new account needs testnet NEAR first: use the [NEAR testnet faucet](https://docs.near.org/getting-started/faucet). Your first signed action also registers your account with the contract (`storage_deposit`).
+
+<Callout type="warn" title="What is and is not verified">
+The payloads the UI sends for hatch, feed, allocate ATP and divide were accepted by the contract on testnet (hashes below), but those four transactions were signed with the CLI, not through the UI wallet. The UI wallet flow itself has **not** been exercised on chain yet.
+</Callout>
+
+## Hatch, feed, divide
+
+{/* Diagram checked against: vault notes "Snacc - Fitur F1 Signless Lab Onboarding dan Inkubasi Strain", "Snacc - Koloni Sel dan Keterlibatan User"
+    (vault text is older than the code in places: hatch is paid with attached NEAR, not ft_transfer_call);
+    code: contracts snacc/src/lib.rs incubate_strain, feed_strain, divide_strain; snacc/src/state.rs STAKE_TREASURY_BPS, MAX_COLONY_SIZE,
+    MAX_GENERATION; README "On-chain proof: the UI's transaction payloads". */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor P as Player
+  participant A as App
+  participant W as Wallet
+  participant C as snacc-v001.testnet
+  P->>A: Hatch: pick a role and a stake
+  A->>W: incubate_strain with the stake attached
+  W->>C: signed transaction
+  C-->>A: strain_created (80% stomach, 20% Pantry)
+  Note over P,C: Check in about once a day
+  P->>A: Feed
+  A->>W: feed_strain (strain_id, amount)
+  W->>C: signed transaction, 0 NEAR attached
+  C-->>A: fed, vitality + 500, ATP minted
+  P->>A: Divide
+  A->>W: divide_strain (strain_id)
+  W->>C: signed transaction, 0 NEAR attached
+  C-->>A: strain_divided (parent, child)
+```
+
+### Hatch
+
+In live mode, once your wallet is linked, press **Hatch** in the action bar. Pick a role (Extractor, Fermenter or Synthesizer) and a testnet NEAR stake, then approve the transaction. The default stake is 0.25 NEAR.
+
+The contract method is `incubate_strain`. The stake is the attached NEAR. **80%** becomes the new Snacc's working capital (its stomach) and **20%** goes to the Pantry, the rule-bound treasury. The new Snacc starts at vitality 8500 (85.00%) with 50 `$ATP`, and appears in **My collection**.
+
+Hatching always opens the wallet, because it attaches NEAR.
+
+### Feed
+
+Press **Feed** about once a day. The contract method is `feed_strain`. It burns `$SNACC` from the Snacc's **own** stomach (the default is 0.05), mints `$ATP`, sets vitality to the current effective vitality plus 500 (at most 10000) and restarts the hunger clock. Only the owner can feed. Feeding attaches no NEAR.
+
+A Snacc that is already starving (effective vitality 0) cannot be fed: it can only be harvested. See [The Snacc organism](/docs/organism) for the hunger maths.
+
+### Divide
+
+`divide_strain` is cell division. The child gets half of the parent's stomach, half of its vitality and half of its ignis spores, and inherits its role, efficiency and BMR. The child is one generation older, starts with 50 `$ATP`, and the parent pays 3 `$ATP`.
+
+Division is fenced by population rules, so it can be refused:
+
+| Error | When |
+| --- | --- |
+| `ERR_COLONY_FULL` | You already have `MAX_COLONY_SIZE = 5` living Snaccs |
+| `ERR_MAX_GENERATION` | The child would pass `MAX_GENERATION = 8` |
+| `ERR_BIRTHS_EXCEEDED` | Total divisions would exceed total mergers plus total lysis harvests in the whole game. Division only runs on a "budget" created by merges and harvests |
+| `ERR_NOT_ENOUGH_ATP` | The parent has fewer than 3 `$ATP` |
+
+The UI turns contract errors into plain-English messages.
+
+## One-tap play, optional
+
+In **Settings, One-tap play** the wallet adds one restricted access key to your account once. Eight deposit-free actions then go out without a wallet popup: `allocate_atp`, `claim_industrial_dividend`, `divide_strain`, `feed_strain`, `harvest_starving_strain`, `npc_buy_spores`, `splice_strains` and `synthesize_and_redeem_aether`. The key may only call `snacc-v001.testnet`, with a 0.25 NEAR gas allowance.
+
+Hatching and every action that attaches NEAR still open the wallet. If one-tap cannot be used, the action falls back to one wallet popup and is never sent twice.
+
+<Callout type="warn" title="Not verified yet">
+No one-tap transaction has been sent on testnet yet, and no real wallet has been seen accepting the key. It is covered by unit tests with a fake RPC and a fake wallet only. Hatching without any NEAR (a relayer or meta-transactions) is a plan for after the hackathon and is not built.
+</Callout>
+
+## Proof on testnet
+
+Four transactions to `snacc-v001.testnet` carry exactly the arguments, attached NEAR and gas that the UI's call builders produce. They were signed with the CLI. Each hash was read back from the testnet RPC (final status, `SuccessValue`, no failed receipt) and is copied from the README of the umbrella repo.
+
+| Action | Method and arguments | What the chain recorded | Transaction |
+| --- | --- | --- | --- |
+| Hatch | `incubate_strain`, stake 0.25 NEAR, role `Extractor`, 10 spores | `strain_created` for strain 10 | [`zx8ASZjo…`](https://testnet.nearblocks.io/txns/zx8ASZjoPypzWc9TwjUumKZWo8thNAoKTutpqyy3kVa) |
+| Feed | `feed_strain`, strain 10, amount 0.05 `$SNACC` | `fed` for strain 10 | [`EbYbVWzV…`](https://testnet.nearblocks.io/txns/EbYbVWzVDnTd5im3wf1TPVS5r4ff1GbZw2QFjTntoiZ3) |
+| Allocate ATP | `allocate_atp`, strain 10, one level each of two organelles | `atp_allocated` for strain 10 | [`2LnyPshQ…`](https://testnet.nearblocks.io/txns/2LnyPshQH5hqqiY9rERTeVCRWT9LkpEFd2kB1sEvZB3E) |
+| Divide | `divide_strain`, strain 10 | `strain_divided`: parent 10, child 11 | [`81vVZ5cu…`](https://testnet.nearblocks.io/txns/81vVZ5cu8ofeKtBB3WskHjjjWU8mmQQ9wxpAYb3hkZgi) |
+
+This shows the contract accepts the exact payloads the UI builds. It does not show that a browser wallet signed them.

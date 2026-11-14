@@ -1,0 +1,189 @@
+---
+title: The Snacc organism
+description: A Snacc has a stomach of $SNACC, an inventory of nine NEP-245-style molecules, a metabolism (BMR), internal $ATP energy and three organelle slots.
+icon: spores
+---
+
+A Snacc is one record in the contract (`StrainVessel`, addressed by `strain_id`) plus one NFT. This page walks through its parts: the stomach, the inventory, the metabolism, `$ATP` and the organelles.
+
+## Anatomy at a glance
+
+{/* Diagram checked against: vault notes "Snacc - Konsep Proyek" (Lapisan Mikro), "Snacc - Siklus Hidup Sel dan Metabolisme" (MB-01..03),
+    "Snacc - Model Data" (StrainVessel, D2, D3); code: contracts snacc/src/state.rs (StrainVessel, OrganelleSlots, constants INITIAL_ATP,
+    METABOLIC_RECOVERY_VITALITY, MAX_ORGANEL_LEVEL) and snacc/src/lib.rs (feed_strain, calc_atp_minted, pay_atp, recover_metabolism,
+    allocate_atp, effective_vitality). */}
+
+```pele
+flowchart TB
+  subgraph Snacc["One Snacc: NFT and strain_id"]
+    ST["Stomach<br/>$SNACC balance"]
+    INV["Inventory<br/>9 molecules, 3 stages"]
+    ATP["ATP<br/>internal energy"]
+    ORG["Organelles<br/>mitokondria, nukleus, lisosom"]
+    VIT["Vitality and BMR<br/>0 to 10000, drains hourly"]
+  end
+  FEED(["feed_strain"]) -->|"burns part of the bite"| ST
+  FEED -->|"mints ATP"| ATP
+  FEED -->|"vitality +500, clock restarts"| VIT
+  ATP -->|"pays for actions"| INV
+  ATP -->|"allocate_atp: 1 per level"| ORG
+  INV -->|"extract, ferment, synthesize: vitality +500"| VIT
+  ORG -.->|"mitokondria: more ATP<br/>nukleus: more output<br/>lisosom: slower BMR"| VIT
+  TIME(["Time"]) -->|"BMR drains vitality"| VIT
+```
+
+## The stomach
+
+Every Snacc owns a `$SNACC` balance of its own. It is a separate ledger from your wallet balance: the NEP-141 view `ft_balance_of` counts **account** balances only, and `$SNACC` inside a Snacc moves only through game rules.
+
+- At hatching, 80% of the stake becomes the stomach and 20% goes to the Pantry.
+- `feed_strain` burns a slice of the stomach as food. The fee then runs through the central bank (`CrucibleTemp`): in a Fever zone part of it is burned, and in a Hypothermia zone the Snacc may get a rebate from the Pantry.
+- The stomach travels with the NFT. `nft_transfer` moves the whole cell: stomach, inventory, organelles, `$ATP` and `state_nonce`, because all of it is keyed by `strain_id`. Dead cells (`Liquidated` or `SplicedBurned`) cannot be transferred.
+- `state_nonce` rises on every balance or inventory change. `adopt` and `hostile_takeover_splice` take the nonce you saw (`expected_target_nonce`) and fail if the Snacc changed in between, and a `pending_callbacks` lock blocks changes while its sub-account is being created.
+- `$SNACC` is born only from a real NEAR stake at hatching. Everything else moves existing balances or burns them.
+
+## The inventory
+
+The inventory holds **nine molecules** in three stages. Each Snacc has a job (its role) that decides which stage it can work in. The contract keeps the inventory as `NEP-245`-style accounting: `mt:*` token ids, `mt_burn` of inputs and `mt_mint` of outputs. It does **not** expose public `mt_*` methods, so molecules are contract-internal fuel, not standalone transferable tokens. Read a balance with the view `get_inventory(strain_id, token_id)`.
+
+{/* Diagram checked against: vault note "Snacc - Katalog Molekul dan Organisme" (3 castes, 9 molecules; the vault recipe for elixir-aether differs from the code);
+    code: contracts snacc/src/lib.rs extract_spores, transmute_spores_to_enzyme (recipe priority amalgam, redactase, synthase),
+    synthesize_elixir (recipes and the aether TEE gate), pay_atp costs 1, 2 and 3; snacc/src/state.rs token id constants. */}
+
+```pele
+flowchart LR
+  subgraph S1["Stage 1: spores<br/>Extractor, 1 ATP"]
+    I["mt:spore-ignis"]
+    Y["mt:spore-cryo"]
+    L["mt:spore-lumin"]
+  end
+  subgraph S2["Stage 2: enzymes<br/>Fermenter, 2 ATP"]
+    A["mt:enzyme-amalgam"]
+    R["mt:enzyme-redactase"]
+    SY["mt:enzyme-synthase"]
+  end
+  subgraph S3["Stage 3: elixirs<br/>Synthesizer, 3 ATP"]
+    H["mt:elixir-homunculus"]
+    HO["mt:elixir-homeostasis"]
+    AE["mt:elixir-aether"]
+  end
+  I --> A
+  I --> R
+  L --> R
+  Y --> SY
+  A --> H
+  SY --> H
+  A --> HO
+  R --> HO
+  A --> AE
+  SY --> AE
+```
+
+| Stage | Method | Role needed | Cost | What it does |
+| --- | --- | --- | --- | --- |
+| 1 | `extract_spores(strain_id, spore_type, snacc_catalyst_fee)` | Extractor | 1 `$ATP` | Mints 1 spore of the chosen type per call. Hatching also mints `initial_spores` of `mt:spore-ignis` |
+| 2 | `transmute_spores_to_enzyme(strain_id, spores_to_burn, snacc_catalyst_fee)` | Fermenter | 2 `$ATP` | Burns an even number of spores and mints enzymes, times `efficiency_bps / 10000`. Which enzyme follows from the stock: amalgam from ignis, then redactase from ignis and lumin, then synthase from cryo |
+| 3 | `synthesize_elixir(strain_id, elixir_type, enzymes_to_burn, snacc_catalyst_fee)` | Synthesizer | 3 `$ATP` | Burns enzymes in whole batches and mints 1 elixir per batch. Homunculus: 2 amalgam and 1 synthase. Homeostasis: 1 amalgam and 1 redactase. Aether: 2 amalgam and 1 synthase, and only after a successful TEE mutation (otherwise `ERR_REQUIRES_TEE_ATTESTATION`) |
+
+Every stage also pays a `$SNACC` catalyst fee that flows into the central bank, and every successful stage action restores 500 vitality and restarts the hunger clock.
+
+What the elixirs do on chain today:
+
+- **`mt:elixir-homeostasis`**: a passive shield. A Snacc holding at least one takes only 50% of the Fever burn on its fees. It is not consumed.
+- **`mt:elixir-aether`**: burned in `synthesize_and_redeem_aether` to claim a share of the industrial dividend pool.
+- **`mt:elixir-homunculus`**: made and held. The contract has no method that consumes it yet.
+
+### Roles
+
+A new Snacc has exactly one role bit, chosen at hatching. The role sets the hunger rate and the stage it can work in. Merging two Snaccs (`splice_strains`) combines their bits.
+
+| Role | `role_mask` | `bmr_per_hour` | Works in |
+| --- | --- | --- | --- |
+| Extractor | `0b001` | 100 | Stage 1 |
+| Fermenter | `0b010` | 120 | Stage 2 |
+| Synthesizer | `0b100` | 150 | Stage 3 |
+
+## Metabolism: BMR and vitality
+
+Vitality is a number from 0 to 10000 (100.00%). A new Snacc starts at **8500**. The basal metabolic rate (`bmr_per_hour`) is how much vitality it loses every hour.
+
+The contract never runs a timer. It works the current value out whenever someone reads or touches the Snacc ("lazy BMR"):
+
+```text
+effective_vitality = vitality - floor(hours since last_fed_sec) * bmr_effective
+bmr_effective      = bmr_per_hour * (10000 - 1000 * lisosom) / 10000
+```
+
+`feed_strain` and every stage action set `vitality` to `min(10000, effective_vitality + 500)` and reset `last_fed_sec`.
+
+How long a Snacc lasts with no feeding and no lysosome (derived from the constants above):
+
+| Role | Distressed after | Starving after |
+| --- | --- | --- |
+| Extractor | 65 hours | 85 hours |
+| Fermenter | 55 hours | 71 hours |
+| Synthesizer | 44 hours | 57 hours |
+
+Effective vitality sorts every Snacc onto a three-rung ladder:
+
+{/* Diagram checked against: vault notes "Snacc - Model Data" (SolvencyTier, ADR-26), "Snacc - Siklus Hidup Sel dan Metabolisme" (LC-04..LC-07);
+    code: contracts snacc/src/state.rs (StrainStatus, SolvencyTier, view_status, effective_vitality, LIQUIDATOR_BOUNTY_BPS) and
+    snacc/src/lib.rs (hostile_takeover_splice, adopt, harvest_starving_strain, splice_strains). The vault enum names (Alive, Starving,
+    HostileAcquired) are older than the code, which has Active, Distressed, Liquidated and SplicedBurned. */}
+
+```pele
+stateDiagram-v2
+  [*] --> Healthy: incubate_strain, vitality 8500
+  Healthy --> Distressed: effective vitality 2000 or less
+  Distressed --> Healthy: feeding and work lift it above 2000
+  Distressed --> Starving: effective vitality reaches 0
+  Distressed --> Distressed: adopt, owner changes, vitality unchanged
+  Distressed --> Absorbed: hostile_takeover_splice, book value + 15%
+  Healthy --> Absorbed: splice_strains, one owner merges two Snaccs
+  Distressed --> Absorbed: splice_strains, also possible
+  Starving --> Liquidated: harvest_starving_strain, 10% to the caller
+  Absorbed --> [*]
+  Liquidated --> [*]
+```
+
+| Tier (`SolvencyTier`) | Effective vitality | What is open to others |
+| --- | --- | --- |
+| `Tier1Healthy` | above 2000 (above 20%) | Nothing: other players cannot touch it. Its owner can merge it with another of their Snaccs (`splice_strains`) |
+| `Tier2Chapter11Distressed` | 1 to 2000 | `adopt`: the adopter pays book value (the stomach plus the inventory at 1 `$SNACC` per molecule unit) to the old owner and takes the Snacc over as it is. Or `hostile_takeover_splice`: pay book value plus 15% and absorb it into one of your Snaccs |
+| `Tier3Chapter7Insolvent` | 0 | `harvest_starving_strain` by anyone: 10% of the stomach to the caller, 90% to the Pantry. The Snacc can no longer be fed |
+
+The stored `status` of a Snacc is one of `Active`, `Distressed`, `Liquidated` or `SplicedBurned`. A starving Snacc stays `Active` until someone harvests it. Use `get_solvency_tier` to read the tier.
+
+## `$ATP`: the energy
+
+`$ATP` is the Snacc's internal energy, kept in the field `atp_balance`.
+
+- It is **not a token**: it has no total supply and cannot be transferred.
+- A new Snacc starts with 50. A divided child also starts with 50.
+- `feed_strain` mints it from the fee actually paid: `atp = fee / 10^15 * efficiency_bps / 10000 * (10000 + 1000 * mitokondria) / 10000`.
+- It pays for actions:
+
+| Action | Cost |
+| --- | --- |
+| `extract_spores` | 1 |
+| `transmute_spores_to_enzyme` | 2 |
+| `synthesize_elixir` | 3 |
+| `divide_strain` | 3 |
+| `conjugate_traits` | 2 |
+| `splice_strains` | 5 |
+| `hostile_takeover_splice` | 10 |
+| `allocate_atp` | 1 per level gained |
+
+If a Snacc has too little, the call fails with `ERR_NOT_ENOUGH_ATP`.
+
+## Organelles
+
+`allocate_atp(strain_id, mitokondria, nukleus, lisosom)` spends `$ATP` to set the levels of three organelle slots, field `organel`. Each level costs 1 `$ATP` to gain. The maximum is level 5, and you can allocate once per epoch (`EPOCH_DURATION_SEC` = 86400, 24 hours). A second try in the same epoch fails with `ERR_ALREADY_ALLOCATED`, and going past 5 fails with `ERR_ORGANEL_LEVEL_MAX`.
+
+| Slot | Effect per level | Where it applies |
+| --- | --- | --- |
+| `mitokondria` | +10% `$ATP` minted | `feed_strain` |
+| `nukleus` | +10% production output | `transmute_spores_to_enzyme` and `synthesize_elixir` |
+| `lisosom` | -10% effective BMR | the hunger drain |
+
+Organelles are inherited when two Snaccs merge (the higher level of each slot wins) and are halved between parent and child when a Snacc divides. Only these three slots are built. Other organelles you may read about in the design notes are roadmap ideas, not code.

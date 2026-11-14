@@ -1,0 +1,99 @@
+---
+title: Introduction
+description: Snacc ($SNACC) is NFTs that eat a memecoin, an on-chain economy game on NEAR. Every Snacc is a living organism with its own stomach, an inventory and a metabolism. Testnet only.
+icon: snacc
+---
+
+**Snacc** (`$SNACC`) is NFTs that eat a memecoin. *Feed your Snacc or it gets snacked.*
+
+Each Snacc is a living NFT. It holds its own `$SNACC` in a stomach, keeps an inventory of molecules, burns energy every hour and works in one stage of a small supply chain. If you forget to feed it, it gets weak, other players can adopt or take it over, and a starved Snacc can be harvested by anyone.
+
+<Callout type="warn" title="Testnet only">
+Everything on this site describes NEAR **testnet** (`snacc-v001.testnet`). `$SNACC` on testnet has no monetary value, and volatility is a game feature, not a promise. A feature counts as live only where the [status table in the README](https://github.com/Snacc-near/Snacc#whats-in-the-app) says so. Plans are marked as plans.
+</Callout>
+
+<IconRow />
+
+## What a Snacc is
+
+A Snacc is one organism and one NFT (`NEP-171`, with a live on-chain SVG through `NEP-177`):
+
+- **A stomach.** A balance of `$SNACC` that belongs to the Snacc itself, not to your wallet. Feeding burns some of it.
+- **An inventory.** Nine molecules in three stages: spores, enzymes and elixirs.
+- **A metabolism.** A basal metabolic rate (`BMR`) drains *vitality* every hour. Feeding or working refills it.
+- **Energy.** `$ATP`, an internal unit that pays for actions. It is not a token and cannot be transferred.
+- **A job.** Extractor, Fermenter or Synthesizer, one stage of the supply chain.
+
+The whole game runs inside **one contract**, `snacc-v001.testnet`. See [The Snacc organism](/docs/organism) for the parts and [Architecture](/docs/architecture) for how the contract, the indexer, Supabase and the TEE fit together.
+
+## The four layers
+
+{/* Diagram checked against: vault notes "Snacc - Konsep Proyek" (Empat Lapisan Solusi), "Snacc - Diagram Konseptual" (flowchart 1);
+    code: contracts snacc/src/lib.rs (incubate_strain, feed_strain, apply_thermostat_fee, extract_spores, transmute_spores_to_enzyme,
+    synthesize_elixir, commit_genome_experiment, apply_tee_mutation_zero_trust, adopt, hostile_takeover_splice, harvest_starving_strain,
+    npc_buy_spores) and snacc/src/state.rs constants (FEVER_*, REBATE_BPS). */}
+
+```pele
+flowchart TB
+  P([Player]) -->|"hatch, feed"| S["Snacc organism<br/>stomach, inventory, ATP"]
+  N["3 NPC merchants"] -->|"sell spores"| S
+  S -->|"extract, ferment,<br/>synthesize"| C["Supply chain<br/>spores, enzymes, elixirs"]
+  S -->|"fees"| T["CrucibleTemp<br/>central bank"]
+  T -->|"Fever:<br/>burn 3.5% of the fee"| B(["Burned"])
+  T -->|"Hypothermia:<br/>2% rebate"| S
+  S -->|"formula"| G["Genome check<br/>NEAR AI Cloud TEE"]
+  G -->|"signed result,<br/>checked on chain"| S
+  S -.->|"Distressed: adopt, take over<br/>Starving: harvest"| H(["Other players"])
+```
+
+| Layer | What it does |
+| --- | --- |
+| **Living NFT** | The organism: stomach, inventory, vitality and BMR, and an SVG the contract draws from its own state. |
+| **Supply chain and corporates** | Three stages of `NEP-245`-style molecules, three job roles that can be merged (`splice_strains`), taken over while distressed (`hostile_takeover_splice`, `adopt`) or harvested once starved (`harvest_starving_strain`). A player can also grow a colony of up to 5 with `divide_strain`. |
+| **Secret genome** | A formula is evaluated by a model inside the `NEAR AI Cloud TEE`. The contract checks the enclave signature itself with `env::ed25519_verify` and clamps the result to ±1500 bps. |
+| **Central bank** | `CrucibleTemp` reads the colony's activity. Above 610 mK (Fever) a slice of each fee is burned; below 600 mK (Hypothermia) the Pantry gives a rebate. No admin can withdraw the Pantry. |
+
+Three autonomous NPC merchants (`npc-extractor`, `npc-central-arb`, `npc-vulture-ma`) quote and sell spores from inside the contract, so the economy has a counterparty even with one player.
+
+## Words you will see
+
+| In the game | In the contract | Meaning |
+| --- | --- | --- |
+| Snacc, strain, cell | `StrainVessel`, `strain_id` | One organism and its NFT |
+| Fullness, vitality | `vitality`, `effective_vitality` | Health on a 0 to 10000 scale (100.00%) |
+| Hunger rate | `bmr_per_hour` | Vitality lost per hour: 100, 120 or 150 by role |
+| The Pantry | treasury | The rule-bound treasury. It pays rebates and receives a share of fees |
+| Appetite meter | `CrucibleTemp`, `get_appetite_meter` | The colony's activity reading, in mK |
+| Feeding Frenzy, Famine Relief | Fever, Hypothermia | The two zones that burn or rebate |
+| Snack it | `harvest_starving_strain` | Harvest a starved Snacc: 10% to you, 90% to the Pantry |
+
+## What is live today
+
+The table follows the README of the [`Snacc` umbrella repo](https://github.com/Snacc-near/Snacc), checked 2026-11-14. "Live" means present in the production build; it is not the same as "tried on chain with a real wallet".
+
+| Part | Status |
+| --- | --- |
+| Landing page and the game at [`/app`](https://snacc-nu.vercel.app/app), with the `demo · simulated` mode | Live |
+| `live testnet` mode: strains, macro state, Great Feast and NPC quotes from contract views and the read-only backend | Live, reads only |
+| Wallet login (NEAR Connect) and signed game actions | Live. The UI wallet flow has **not** been exercised on chain yet |
+| Hatch, feed, allocate ATP and divide payloads | Accepted by the contract on testnet, signed with the CLI, not through the UI wallet |
+| One-tap play (restricted access key, deposit-free actions only) | Live, opt-in. **Not verified** on testnet |
+| Market window for `snacc-market.testnet` | Live. The contract was exercised with CLI-signed transactions; the UI market with a real wallet is not verified |
+| Profiles, quests, leaderboards on Supabase | Live, off-chain data |
+| Testnet starter pack, account deletion | **Not enabled** / **not live** yet |
+
+Planned and not built: hatching without any NEAR (a relayer or meta-transactions) is post-hackathon work.
+
+## Where to go next
+
+<Cards>
+  <Card title="Play in 60 seconds" href="/docs/play" icon={<Icon name="atp" />}>
+    Demo, then live read, then a wallet: hatch, feed and divide.
+  </Card>
+  <Card title="The Snacc organism" href="/docs/organism" icon={<Icon name="spores" />}>
+    Stomach, inventory, BMR, `$ATP` and organelles.
+  </Card>
+  <Card title="Architecture" href="/docs/architecture" icon={<Icon name="near" />}>
+    Repos, the contract, the indexer, Supabase and the TEE.
+  </Card>
+</Cards>

@@ -1,0 +1,150 @@
+---
+title: Architecture
+description: The Snacc repos and how data flows between the browser, the single NEAR contract snacc-v001.testnet, the read-only indexer, Supabase and the NEAR AI Cloud TEE.
+icon: near
+---
+
+Snacc is a polyrepo under the public GitHub organisation [`Snacc-near`](https://github.com/Snacc-near). **All game rules live in one NEAR contract**, `snacc-v001.testnet`. Everything else reads from it, signs calls to it, or stores things the chain does not need to hold. NEAR **testnet only**.
+
+## The repos
+
+| Repo | What it holds |
+| --- | --- |
+| [`Snacc`](https://github.com/Snacc-near/Snacc) (umbrella) | The README with the live-status table, docs, demo orchestration, evidence and this docs site |
+| [`contracts`](https://github.com/Snacc-near/contracts) | The Rust contract `snacc-v001.testnet` (`near-sdk =5.29.1`) with the dynamic SVG renderer, plus the testnet marketplace crate `market/` (`snacc-market.testnet`) |
+| [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | The TEE client: local redaction of the formula, the NEAR AI Cloud enclave call and the `ed25519` signature check |
+| [`sdk`](https://github.com/Snacc-near/sdk) | The lab SDK: the `NEP-297` event parser, the session-key manager for one-tap play (deposit-free methods only) and a contract client |
+| [`backend`](https://github.com/Snacc-near/backend) | The read-only indexer API (`/api/crucible/*` and friends) and `supabase/`: player-profile migrations and Edge Functions |
+| [`frontend`](https://github.com/Snacc-near/frontend) | The landing page and the game at `/app` |
+| [`scripts`](https://github.com/Snacc-near/scripts) | `verify:thesis`, `demo:replay`, `gladi:retry` and the economic simulations |
+
+## The big picture
+
+{/* Diagram checked against: vault notes "Snacc - Peta Modul" (dependency diagram M1..M7), "Snacc - Struktur Repo", "Snacc - Spec API Backend dan TEE",
+    "Snacc - DFD Level 1" (flows P1..P8); the vault says the indexer stores to SQLite, which is older than the code. Code and READMEs:
+    backend README (endpoints, poller via NearBlocks account feed and tx RPC, supabase/ Edge Functions), backend supabase/README.md
+    (flows near-auth, record-tx, notify-scan, chain-index), contracts snacc/src/events.rs (EVENT_JSON, standard "snacc"),
+    snacc/src/lib.rs (views, commit_genome_experiment, apply_tee_mutation_zero_trust), umbrella README (status table). */}
+
+```pele
+flowchart TB
+  FE["frontend in the browser<br/>landing and /app"]
+  WL["NEAR wallet<br/>or one-tap key"]
+  BE["backend<br/>read-only indexer API"]
+  EF[("Supabase<br/>Edge Functions, Postgres")]
+  C["snacc-v001.testnet<br/>all game rules"]
+  M["snacc-market.testnet<br/>marketplace"]
+  TEE["NEAR AI Cloud TEE<br/>z-ai/glm-5.3-flash"]
+  FE -->|"asks to sign"| WL
+  FE -->|"views"| C
+  FE -->|"/api/crucible/*"| BE
+  FE -->|"profiles, quests"| EF
+  WL -->|"signed transactions"| C
+  WL -->|"list, buy"| M
+  BE -->|"views, EVENT_JSON"| C
+  EF -->|"tx status, views"| C
+  BE -.->|"evaluate-genome, gated"| TEE
+```
+
+What each arrow is:
+
+- **Views.** The browser reads `get_strain`, `get_macro_state`, `get_colony`, `nft_tokens_for_owner` and others straight from the contract over NEAR RPC. Where the chain gives no value the UI shows `—`.
+- **Signed calls.** The wallet (NEAR Connect, or an email login through Privy) signs every transaction that attaches NEAR. Optional one-tap play uses one restricted function-call key for eight deposit-free methods.
+- **The indexer.** The `backend` never signs a transaction. It serves views and decoded events as plain JSON.
+- **Supabase.** Profiles, sign-in, achievements, quests, notifications and an event history live off chain. Nothing there changes what the contract proves.
+- **The TEE path** is dotted: it is gated, and the public backend runs without the NEAR AI key, so `POST /api/tee/evaluate-genome` answers `503 tee_not_configured` there. The on-chain verification was exercised on testnet (see below).
+
+## The contract
+
+One contract carries the whole game: the `NEP-141` memecoin `$SNACC`, the `NEP-171` NFTs with `NEP-177` metadata and `NEP-181` enumeration, the storage deposit (`NEP-145`), the molecule inventory, the central bank and the TEE verification. A Snacc's NFT image is an SVG the contract draws from its own state when `nft_token` is called, so it costs no extra storage and always matches the current state.
+
+Every state change emits a `NEP-297` event line:
+
+```text
+EVENT_JSON:{"standard":"snacc","version":"1.0.0","event":"fed","data":[{ ... }]}
+```
+
+Events include `strain_created`, `fed`, `extracted`, `transmuted`, `synthesized`, `strain_divided`, `strain_adopted`, `strains_spliced`, `strain_liquidated`, `zone_changed`, `genome_committed` and `genome_mutated`. The indexer and the SDK parse them.
+
+## How a feed travels through the system
+
+{/* Diagram checked against: vault notes "Snacc - DFD Level 1" (P2, P4, P8), "Snacc - Sequence F4 Bank Central Homeostasis dan Reactive Supply SNACC" (older);
+    code and README: contracts snacc/src/lib.rs feed_strain (emits event "fed", returns the new strain view), snacc/src/events.rs;
+    backend README "Event poller note" (NearBlocks v3 account feed for discovery, tx RPC for the EVENT_JSON logs, GET /api/events). */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor P as Player
+  participant A as App
+  participant C as Contract
+  participant B as Backend
+  participant X as NearBlocks, RPC
+  P->>A: Feed
+  A->>C: feed_strain<br/>signed by the wallet
+  C->>C: burn from stomach,<br/>move CrucibleTemp, mint ATP
+  C-->>A: new strain view,<br/>fed event in the receipt
+  loop every poll tick
+    B->>X: new transactions?
+    X-->>B: tx hashes, then<br/>outcomes with EVENT_JSON
+  end
+  A->>B: GET /api/events
+  B-->>A: decoded events
+  A->>C: get_strain, get_macro_state
+```
+
+The event list can lag or be incomplete: the response carries an `indexer_incomplete` flag and a lag header, and the backend never invents data. An unimplemented endpoint answers `501`, an undeployed contract `503`.
+
+## Supabase
+
+The player-profile part lives in the `backend` repo under `supabase/` and is **deployed**: migrations with row-level security (every table and view ends in `_snacc`) and eight Edge Functions.
+
+| Function | What it does |
+| --- | --- |
+| `near-auth` | Sign-in: the wallet signs a `NEP-413` message and the function checks that the key is a full-access key of the account |
+| `record-tx` | Reads a transaction from RPC and records the activity, which can unlock achievements |
+| `notify-scan` | Scheduled every 10 minutes: scans owned Snaccs and creates "about to be snacked" notifications |
+| `chain-index` | Scheduled every 10 minutes: indexes contract transactions into history, lineage and graveyard views |
+| `starter-pack` | A testnet faucet claim. **Deployed, not enabled**: it answers `not_configured` until a faucet secret is set |
+| `track` | First-party usage telemetry that respects opt-out and Do Not Track |
+| `push`, `push-dispatch` | Web Push for the device (opt-in) |
+
+Account deletion is **not live**: its database migration has not been applied.
+
+## The TEE path
+
+The secret genome is the one place where something outside the chain decides a number, so the contract does not trust it blindly. This is the order of the real flow:
+
+{/* Diagram checked against: vault notes "Snacc - Fitur F3 Eksekusi Genom Rahasia di NEAR AI Cloud TEE", "Snacc - Sequence F3 ..." and "Snacc - Spec API Backend dan TEE"
+    (the vault describes commit before the enclave call; the code commits after, see the honesty note below);
+    code: backend src/evaluate.ts, oracle-tee src/enclave-client.ts (chat/completions, /v1/signature/{chat_id}), contracts snacc/src/lib.rs
+    (register_attested_signer, commit_genome_experiment, apply_tee_mutation_zero_trust) and snacc/src/state.rs (MAX_SHIFT_BPS). */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor O as Strain owner
+  participant A as App
+  participant B as Backend
+  participant T as TEE
+  participant C as Contract
+  O->>A: write a formula
+  A->>B: POST /api/tee/evaluate-genome<br/>signed with NEP-413
+  B->>B: remove identities,<br/>hash the formula
+  B->>T: chat completion<br/>z-ai/glm-5.3-flash, temperature 0
+  T-->>B: answer and chat_id
+  B->>T: signature for the chat_id
+  T-->>B: ed25519 signature
+  B-->>A: raw body, signature,<br/>signer key, mutation
+  A->>C: commit_genome_experiment
+  A->>C: apply_tee_mutation_zero_trust
+  C->>C: env::sha256 of the body,<br/>env::ed25519_verify,<br/>replay and guardrail checks
+```
+
+The contract recomputes the SHA-256 of the exact response body, rebuilds the signed text, verifies the enclave's `ed25519` signature against a signer registered with `register_attested_signer`, rejects a replayed `chat_id`, and clamps the change to `MAX_SHIFT_BPS` = 1500 (±15%).
+
+Honest notes:
+
+- The strict design order "commit before calling the enclave" is **not** achieved on this server-salted path. The commit binds the hash after it has been computed.
+- The on-chain commit and apply were exercised on testnet: [`FnJmzrT4…`](https://testnet.nearblocks.io/txns/FnJmzrT4Z5AqdWMnVhumBKxPEUg64Azg2EUzGGYNb2tT) then [`6s7UFfjd…`](https://testnet.nearblocks.io/txns/6s7UFfjd8XBPZ6b9FK4tzGhEo6kstAVeNMCpdwAT9FCN) (from the README, committed gladi run).
+- Verifying the enclave's hardware quote on chain (for example Intel TDX) is a plan, not built.
