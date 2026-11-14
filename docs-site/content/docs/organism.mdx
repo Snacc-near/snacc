@@ -4,7 +4,23 @@ description: A Snacc has a stomach of $SNACC, an inventory of nine NEP-245-style
 icon: spores
 ---
 
+import { Figure } from '@/components/figure';
+
 A Snacc is one record in the contract (`StrainVessel`, addressed by `strain_id`) plus one NFT. This page walks through its parts: the stomach, the inventory, the metabolism, `$ATP` and the organelles.
+
+## Try one
+
+{/* Figure checked against: code contracts snacc/src/state.rs (constants, StrainVessel, OrganelleSlots) and snacc/src/lib.rs (feed_strain,
+    calc_atp_minted, recover_metabolism, effective_vitality, allocate_atp, extract_spores, transmute_spores_to_enzyme, synthesize_elixir). */}
+
+<Figure
+  name="organism"
+  label="FIG 01 · the Snacc organism"
+  title="Interactive isometric cutaway of a Snacc: stomach, nine-molecule inventory, ATP, three organelles and a vitality gauge"
+  caption="Feed it, let hours pass and watch vitality, solvency tier, stomach and ATP change. Switch on See-through for the stomach, the nine vials, the organelles and the ATP piles."
+/>
+
+The figure uses the contract's own formulas at a small demo scale: one unit (`u`) is `10^15` yocto-`$SNACC`, the unit `$ATP` is minted in. `feed_strain` burns part of the stomach (it does not refill it), mints `$ATP` and adds 500 vitality; the stomach only fills at hatching.
 
 ## Anatomy at a glance
 

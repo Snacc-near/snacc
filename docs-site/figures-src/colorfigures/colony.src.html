@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>The colony plate</title></head><body>
+<script src="core.js"></script>
+<script src="snacc-fig.js"></script>
+<script>
+/* THE COLONY PLATE: up to five Snaccs in one Petri dish, and the gate that limits births.
+   Checked against contracts/snacc/src/state.rs (MAX_COLONY_SIZE 5, MAX_GENERATION 8, MERGER_TAX_BPS 250, LIQUIDATOR_BOUNTY_BPS 1000,
+   SPLICE_BMR_REDUCTION_BPS 1500, INITIAL_ATP 50) and lib.rs divide_strain, splice_strains, harvest_starving_strain.
+   - divide_strain: fences colony_active_count < MAX_COLONY_SIZE (ERR_COLONY_FULL) and child generation <= MAX_GENERATION (ERR_MAX_GENERATION);
+     costs 3 ATP; child balance = floor(balance / 2), the parent keeps the rest; vitality splits the same way; child generation = parent + 1;
+     child ATP = INITIAL_ATP (50). Gate (EN-124): total_divides <= total_mergers + total_lyses, else ERR_BIRTHS_EXCEEDED (the call reverts).
+   - splice_strains(dominant, absorbed): same owner; 2.5% of the absorbed balance goes to the Treasury, the dominant gets the other 97.5% and all
+     molecules; generation + 1 (<= 8); efficiency + 800 bps; BMR - 15%; costs 5 ATP; absorbed becomes SplicedBurned; total_mergers + 1.
+   - harvest_starving_strain (Cell Lysis): a Snacc at 0 effective vitality; 10% bounty to the harvester, 90% to the Treasury; total_lyses + 1.
+   The three counters are protocol-wide (macro_state), not per player. The starting values here are an example mid-game state.
+   PARTS. Dish (glass wall, agar), up to 5 cells with generation cards, selection ring, the gate scale (post, beam, two pans, weights). */
+
+const MAXC = 5, MAXG = 8;
+const SLOT = i => [[55 + 24 * Math.cos(-Math.PI / 2 + i * 2 * Math.PI / 5), 60 + 24 * Math.sin(-Math.PI / 2 + i * 2 * Math.PI / 5)]][0];
+const rOf = b => 5.5 + 6.5 * Math.sqrt(Math.max(0, b) / 400);
+const mkCell = (gen, bal, p) => ({ gen, bal, x: p ? p[0] : 55, y: p ? p[1] : 60, r: 1, dying: null });
+const fresh = () => { const c = [mkCell(0, 400), mkCell(0, 300), mkCell(1, 200)]; c.forEach((q, i) => { [q.x, q.y] = SLOT(i); q.r = rOf(q.bal); });
+  return { cells: c, sel: 0, mergers: 4, lyses: 2, divides: 5, treasury: 0, tilt: 0, ev: 0 }; };
+let ui, kBusy = false;
+const say = (t, ms = 3800) => ui.flash(t, ms);
+const live = st => st.cells.filter(c => !c.dying);
+const budget = st => st.mergers + st.lyses;
+
+function kLoop() {
+  if (kBusy) return; kBusy = true; let last = performance.now();
+  ui.animate(() => { const st = ui.st, now = performance.now(), dt = Math.min(.05, (now - last) / 1000); last = now; let busy = false, i = 0; const sp = (SF_REDUCED ? 1e6 : 1);
+    for (const c of st.cells) {
+      const tgt = c.dying ? c.dying.to : SLOT(live(st).indexOf(c)), rt = c.dying ? 0 : rOf(c.bal);
+      const nx = sfChase(c.x, tgt[0], 60 * sp, dt), ny = sfChase(c.y, tgt[1], 60 * sp, dt), nr = sfChase(c.r, rt, 16 * sp, dt);
+      if (nx !== c.x || ny !== c.y || nr !== c.r) busy = true; c.x = nx; c.y = ny; c.r = nr; }
+    st.cells = st.cells.filter(c => !(c.dying && c.r <= .05));
+    const tl = sfChase(st.tilt, sfClamp((budget(st) - st.divides) * 7, -16, 16), 40 * sp, dt); if (tl !== st.tilt) { st.tilt = tl; busy = true; }
+    if (st.ev > 0) { st.ev = Math.max(0, st.ev - dt / .9); busy = true; }
+    if (!busy) kBusy = false; return busy; });
+}
+function kDivide(st) {
+  const L = live(st), p = L[st.sel % L.length];
+  if (L.length >= MAXC) return say('Refused: ERR_COLONY_FULL. The plate holds MAX_COLONY_SIZE = 5 cells.');
+  if (p.gen + 1 > MAXG) return say('Refused: ERR_MAX_GENERATION. Generation 8 is the last.');
+  if (st.divides + 1 > budget(st)) return say(`Refused: ERR_BIRTHS_EXCEEDED. total_divides ${st.divides + 1} would exceed total_mergers + total_lyses = ${budget(st)}. Splice or harvest to earn budget.`, 5200);
+  const child = Math.floor(p.bal / 2), c = mkCell(p.gen + 1, child, [p.x, p.y]); c.r = 1;
+  p.bal -= child; st.divides += 1; st.cells.push(c); st.ev = 1; kLoop();
+  say(`divide_strain: child gen ${c.gen} takes ${child} u (half), the parent keeps ${p.bal} u. Cost 3 ATP, child starts with 50 ATP. Gate ${st.divides} <= ${budget(st)}.`);
+}
+function kSplice(st) {
+  const L = live(st); if (L.length < 2) return say('Refused: ERR_SAME_STRAIN. Splice needs two cells.');
+  const d = L[st.sel % L.length], a = L[(st.sel + 1) % L.length];
+  if (d.gen + 1 > MAXG) return say('Refused: ERR_MAX_GENERATION. The dominant cell is already generation 8.');
+  const tax = Math.floor(a.bal * 250 / 10000); d.bal += a.bal - tax; d.gen += 1; st.treasury += tax; st.mergers += 1; a.dying = { to: [d.x, d.y] }; st.ev = 1;
+  st.sel = L.indexOf(d) > L.indexOf(a) ? st.sel - 1 : st.sel; kLoop();
+  say(`splice_strains: absorbed cell burned. Dominant gen ${d.gen}, +${a.bal - tax} u (2.5% tax ${tax} u to the Treasury), efficiency +800 bps, BMR -15%, 5 ATP. total_mergers ${st.mergers}.`, 5200);
+}
+function kHarvest(st) {
+  const L = live(st); if (L.length < 2) return say('Keep at least one cell on the plate.');
+  const c = L.slice().sort((x, y) => x.bal - y.bal)[0], bounty = Math.floor(c.bal * 1000 / 10000);
+  c.dying = { to: [c.x, c.y] }; st.lyses += 1; st.treasury += c.bal - bounty; st.ev = 1; st.sel = Math.min(st.sel, L.length - 2); kLoop();
+  say(`harvest_starving_strain: a starved cell is lysed. Bounty ${bounty} u (10%) to the harvester, ${c.bal - bounty} u (90%) to the Treasury. total_lyses ${st.lyses}.`, 5200);
+}
+
+function kCell(c, st, k, selected) {
+  const r = c.r, z0 = 10, C = [c.x, c.y, z0 + r * .82], R = sfRings(C, [r, r, r * .82], 6, 14), tint = c.dying ? SFC.tomato : SFC.amber;
+  const m = { l: mix(tint.l, '#ffffff', Math.min(.35, c.gen * .05)), m: tint.m, d: tint.d };
+  let s = '';
+  if (k > 0) s += `<g opacity="${f(.45 * k)}">${sfFar(R, m)}</g>` + `<g opacity="${f(k)}">${cyl(c.x, c.y, z0, z0 + .5 + 7 * sfClamp(c.bal / 400, 0, 1.2) * (r / 10), r * .38, SFC.amber, toneI, .8, 12)}${sfBall([c.x - r * .3, c.y + r * .3, z0 + r * .9], r * .26, SFC.mint, .7, toneI, 4, 8)}</g>`;
+  s += `<g opacity="${f(1 - .82 * k)}">${sfSkin(R, m, tone)}</g>` + `<g opacity="${f(1 - .4 * k)}">${hullInk(sfPts(R), 2)}</g>`;
+  if (selected) s = `<path d="${sfRing(c.x, c.y, 10.1, r + 3, 22)}" fill="none" stroke="${INK}" stroke-width="${f(1.3 * INK_K)}" stroke-dasharray="${f(3 * INK_K)} ${f(2 * INK_K)}"/>` + s;
+  if (!c.dying && vis([1, 0, 0]) && r > 3) {
+    const xx = c.x + r * .8;
+    s += `<g opacity="${f(1 - .8 * k)}">` + [-1, 1].map(sg => sfBall([xx, c.y + sg * r * .36, z0 + r * 1.05], r * .17, matOf('#fffdf4'), .6, toneI, 4, 8)).join('') + '</g>';
+  }
+  const card = !c.dying && r > 3 ? box(c.x + r * .9, c.y - 3.4, z0 + r * 1.75, c.x + r * .9 + .7, c.y + 3.4, z0 + r * 1.75 + 4.4, SFC.cream, toneI, .7) + (vis([1, 0, 0]) ? tx(c.x + r * .9 + .8, c.y, z0 + r * 1.75 + 1.5, 'G' + c.gen, 3.2, INK, 800) : '') : '';
+  return { box: [[c.x - r, c.y - r, z0], [c.x + r, c.y + r, z0 + 2 * r * .82 + 6]], svg: s + card };
+}
+
+function kScale(st) {
+  const px = 112, py = 60, pz = 44, a = st.tilt * Math.PI / 180, e = 24, parts = [];
+  const R = [px, py - e * Math.cos(a), pz - e * Math.sin(a)], Lh = [px, py + e * Math.cos(a), pz + e * Math.sin(a)];
+  let post = box(px - 7, py - 8, 4, px + 7, py + 8, 10, SFC.cream, toneI, 1.2) + cyl(px, py, 10, pz - 1, 2, SFC.steel, toneI, 1, 10) + sfBall([px, py, pz], 3, SFC.steel, 1, toneI, 5, 10);
+  parts.push({ box: [[px - 7, py - 8, 4], [px + 7, py + 8, pz + 4]], svg: post });
+  parts.push({ box: [[px - 2, py - e - 2, pz - 9], [px + 2, py + e + 2, pz + 9]], svg: rod(R, Lh, 1.5, SFC.steel, toneI, 1) });
+  const pan = (end, n1, n2, col1, col2) => { const c = [end[0], end[1], end[2] - 13]; let s = rod(end, [c[0], c[1] - 6, c[2]], .4, SFC.steel, toneI, .5) + rod(end, [c[0], c[1] + 6, c[2]], .4, SFC.steel, toneI, .5)
+      + cyl(c[0], c[1], c[2] - 1, c[2], 9, SFC.steel, toneI, 1, 18); const cubes = [...Array(n1).fill(col1), ...Array(n2).fill(col2)].slice(0, 16);
+    cubes.forEach((col, i) => { const gx = i % 2, gy = Math.floor(i / 2) % 3, gz = Math.floor(i / 6); s += box(c[0] - 4 + gx * 4, c[1] - 6 + gy * 4, c[2] + gz * 3.4, c[0] - 4 + gx * 4 + 3.6, c[1] - 6 + gy * 4 + 3.6, c[2] + gz * 3.4 + 3.2, col, toneI, .7); });
+    return { box: [[c[0] - 9, c[1] - 9, c[2] - 2], [c[0] + 9, c[1] + 9, c[2] + 12]], svg: s }; };
+  parts.push(pan(Lh, st.divides, 0, SFC.amber, SFC.amber), pan(R, st.mergers, st.lyses, SFC.cream, SFC.mint));
+  return parts;
+}
+
+function kScene(st, m) {
+  const k = ease(st.xr || 0), parts = [], L = live(st);
+  const dishTop = on(PZ(10), ellUV(55, 60, 44, 44, 30)), dishBot = on(PZ(4), ellUV(55, 60, 44, 44, 30));
+  const floor = board(0, 0, 132, 124, 4, 6, SF_BOARD) + castShadow([...dishTop, [112, 60, 60]], 4, boardTop(0, 0, 132, 124, 4, 6));
+  let dish = loft(dishBot, dishTop, n => toneI(n, SFC.glass)) + fill(pd(dishTop), SFC.glass.l) + ink(pd(dishTop), 1.2) + fill(pd(on(PZ(10.05), ellUV(55, 60, 40, 40, 30))), SFC.agar.m) + ink(pd(on(PZ(10.05), ellUV(55, 60, 40, 40, 30))), .8) + hullInk([...dishTop, ...dishBot], 2.4);
+  if (k > 0) dish = `<g opacity="${f(1 - .35 * k)}">${dish}</g>`;
+  parts.push({ box: [[11, 16, 4], [99, 104, 10.2]], svg: dish });
+  st.cells.forEach(c => { const idx = L.indexOf(c); parts.push(kCell(c, st, k, idx >= 0 && idx === st.sel % Math.max(1, L.length))); });
+  for (const p of kScale(st)) parts.push(p);
+  const gOK = st.divides <= budget(st);
+  const tags = k > .6 ? xrCallouts([{ at: [55, 60, 12], text: 'AGAR', on: false }, { at: [L[0] ? L[0].x : 55, L[0] ? L[0].y : 60, 14], text: 'STOMACH', on: st.ev > 0 }, { at: [112, 60, 44], text: 'GATE BEAM', on: st.ev > 0 },
+    { at: [112, 84, 36], text: 'DIVIDES', on: st.ev > 0 }, { at: [112, 36, 36], text: 'MERGERS + LYSES', on: st.ev > 0 }], [0, 132, 0, 124, 0, 70])
+    : tag([55, 100, 10], 26, 20, 'DISH', false) + tag([112, 60, 46], 30, -22, 'GATE', st.ev > 0) + tag([112, 84, 34], 26, 14, 'DIVIDES', false) + tag([112, 36, 34], -36, 22, 'MERGERS + LYSES', false);
+  return floor + byDepth(parts) + tags + (gOK ? '' : '');
+}
+
+ui = mountFigure({
+  fig: '04', turn: 'full', title: 'The colony plate', credit: false,
+  size: [132, 124, 60], center: [66, 62], palette: 'snacc',
+  state: fresh(),
+  scene: kScene,
+  stats: st => [{ label: 'Colony', value: `${live(st).length} / ${MAXC}` }, { label: 'Gate: divides <= mergers + lyses', value: `${st.divides} ${st.divides <= budget(st) ? '<=' : '>'} ${budget(st)} (${st.mergers} + ${st.lyses})`, small: true },
+    { label: 'Treasury (u)', value: sfN(st.treasury), small: true }],
+  buttons: [
+    { label: 'Divide', onClick: st => kDivide(st) },
+    { label: 'Splice', onClick: st => kSplice(st) },
+    { label: 'Harvest a starved cell', onClick: st => kHarvest(st) },
+    { label: 'Next cell', onClick: st => { const n = Math.max(1, live(st).length); st.sel = (st.sel + 1) % n; kLoop(); say(`Selected the cell with generation ${live(st)[st.sel].gen} (${live(st)[st.sel].bal} u). Splice absorbs the next one into it.`, 2600); } },
+    { label: 'Reset plate', onClick: st => { Object.assign(st, fresh()); kLoop(); say('Plate reset: 3 cells, gate 5 <= 6.'); } },
+  ],
+  params: (st, q) => { if (q.has('div')) st.divides = +q.get('div'); if (q.has('mer')) st.mergers = +q.get('mer'); if (q.has('lys')) st.lyses = +q.get('lys');
+    if (q.get('full') === '1') { st.mergers = 9; for (let i = 0; i < 2; i++) { const c = mkCell(2, 200); st.cells.push(c); } st.cells.forEach((c, i) => { [c.x, c.y] = SLOT(i); c.r = rOf(c.bal); }); }
+    st.tilt = sfClamp((budget(st) - st.divides) * 7, -16, 16); },
+});
+xrMount(() => ui, () => '');
+sfPrimary('Divide');
+sfCenter(ui);
+</script></body></html>
