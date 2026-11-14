@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>The incubator</title></head><body>
+<script src="core.js"></script>
+<script src="snacc-fig.js"></script>
+<script>
+/* THE INCUBATOR: hatch a Snacc from a testnet NEAR stake.
+   Checked against contracts/snacc/src/lib.rs incubate_strain and state.rs constants.
+   - incubate_strain(role, initial_snacc_stake, initial_spores) is #[payable]: the attached NEAR is the stake, and $SNACC is born from it.
+   - to_treasury = stake * STAKE_TREASURY_BPS / 10000 (2000 bps = 20%, the Rule-Bound Treasury, the "Pantry"); to_strain = stake - to_treasury (80%).
+   - the new Snacc starts at vitality 8500, ATP 50 (INITIAL_ATP), generation 0, organelles 0/0/0, one role bit, bmr_per_hour 100/120/150,
+     and mints initial_spores of mt:spore-ignis (NEP-245-style accounting). materialize_subaccount later creates its keyless sub-account.
+   - the app's stake presets are 0.1, 0.25 and 0.5 NEAR (testnet). NEAR and $SNACC on testnet have no monetary value.
+   PARTS. Hopper with the NEAR coin, splitter box (80 / 20), 80% pipe through the glass into the dish, 20% pipe to the Pantry jar,
+   bell jar over a Petri dish on the tray, the new Snacc in the dish. See-through: the splitter's gate and the Snacc's own stomach and spores. */
+
+const HR = [
+  { n: 'Extractor',   bmr: 100, mask: '0b001', mat: SFC.amber },
+  { n: 'Fermenter',   bmr: 120, mask: '0b010', mat: SFC.mint },
+  { n: 'Synthesizer', bmr: 150, mask: '0b100', mat: { l: '#f3a6bb', m: '#d8869c', d: '#4b2430' } },
+];
+const STAKES = [0.1, 0.25, 0.5];
+const hD = [38, 70], hS = [94, 70], hP = [94, 114];                    // dish, splitter, Pantry jar (x, y)
+const hA = [[hS[0] - 4, hS[1] - 5, 38], [hS[0] - 4, hS[1] - 5, 25], [74, 66, 22], [58, 66, 24], [hD[0] + 4, hD[1] - 4, 31]];   // 80% pipe, into the dish
+const hB = [[hS[0] + 3, hS[1] + 5, 38], [hS[0] + 3, hS[1] + 12, 26], [hS[0] + 1, 102, 22], [hP[0], hP[1] - 6, 22]];           // 20% pipe, to the Pantry jar
+const fmt = n => (Math.round(n * 1e4) / 1e4).toString();
+const fresh = () => ({ stake: 1, role: 0, n: 0, grow: 0, fx: 1, pantry: 0, stomach: 0, spin: 0, last: null, drip: 0 });
+let ui, hBusy = false;
+const say = (t, ms = 3200) => ui.flash(t, ms);
+
+const pathAt = (path, s) => { const seg = path.length - 1, f0 = Math.min(seg - 1e-6, Math.max(0, s) * seg), i = Math.floor(f0), a = f0 - i; return [0, 1, 2].map(j => path[i][j] + (path[i + 1][j] - path[i][j]) * a); };
+
+function hLoop() {
+  if (hBusy) return; hBusy = true; let last = performance.now();
+  ui.animate(() => { const st = ui.st, now = performance.now(), dt = Math.min(.05, (now - last) / 1000); last = now; let busy = false;
+    if (st.fx < 1) { st.fx = Math.min(1, st.fx + dt / (sfMs(3600) / 1000)); busy = true; }
+    st.grow = st.fx < .62 ? (st.n > 1 || st.last ? st.grow : 0) : sfClamp((st.fx - .62) / .3, 0, 1);
+    if (st.fx >= 1) st.grow = 1;
+    if (!busy) hBusy = false; return busy; });
+}
+function hHatch(st) {
+  if (st.fx < 1) return say('One hatch at a time. The coin is still on its way.');
+  const stake = STAKES[st.stakeI == null ? 1 : st.stakeI], toTre = Math.floor(stake * 1e4 * 2000 / 10000) / 1e4, toStr = Math.round((stake - toTre) * 1e4) / 1e4;
+  st.last = { stake, toTre, toStr, role: st.role }; st.n += 1; st.grow = 0; st.fx = 0; st.curStomach = toStr; st.stomach = toStr; st.pantry = Math.round((st.pantry + toTre) * 1e4) / 1e4; hLoop();
+  say(`Hatched #${st.n}. incubate_strain: ${fmt(stake)} NEAR in, ${fmt(toStr)} to the stomach (80%), ${fmt(toTre)} to the Pantry (20%).`);
+}
+const pm = st => { const k = st.last ? st.last.stake : STAKES[1], a = Math.floor(k * 1e4 * 8000 / 10000) / 1e4; return a; };
+
+function hPipe(path, col, w) { return sfWire(path, col, w); }
+
+function hBell(rings) {
+  return `<g opacity=".34">${sfSkin(rings, SFC.glass, toneI)}</g>` + `<g opacity=".7">${hullInk(sfPts(rings), 1.6)}</g>`
+    + `<path d="${pd([[hD[0] + 12, hD[1] + 21, 28], [hD[0] + 6, hD[1] + 25, 33], [hD[0] - 4, hD[1] + 26, 36]], false)}" fill="none" stroke="#fff" stroke-width="${f(2.6 * INK_K)}" stroke-linecap="round" opacity=".7"/>`;
+}
+
+function hScene(st, m) {
+  const k = ease(st.xr || 0), fx = st.fx, role = HR[st.role], parts = [];
+  let s = '';
+  const bellR = [31, 31, 28], bell = sfRings([hD[0], hD[1], 9], bellR, 14, 22).slice(7);     // upper hemisphere from the equator at the dish rim up
+  const floor = board(0, 0, 124, 134, 4, 6, SF_BOARD) + castShadow([...sfPts(bell), [hS[0], hS[1], 80], [hP[0], hP[1], 40]], 4, boardTop(0, 0, 124, 134, 4, 6));
+  // dish
+  let dish = cyl(hD[0], hD[1], 4, 9, 30, SFC.glass, toneI, 1.6, 28) + fill(pd(on(PZ(9.05), ellUV(hD[0], hD[1], 27, 27, 28))), SFC.agar.m) + ink(pd(on(PZ(9.05), ellUV(hD[0], hD[1], 27, 27, 28))), .9);
+  parts.push({ box: [[hD[0] - 30, hD[1] - 30, 4], [hD[0] + 30, hD[1] + 30, 9.2]], svg: dish });
+  // the new Snacc (grows from nothing), eyes when it faces the viewer
+  const g = st.last ? ease(sfClamp(st.grow, 0, 1)) : 0;
+  if (g > .02) {
+    const r = [10 * g, 10 * g, 9 * g], c = [hD[0], hD[1], 9 + r[2]], R = sfRings(c, r, 7, 18), cm = role.mat;
+    let cellS = sfSkin(R, cm, tone) + hullInk(sfPts(R), 2.2);
+    if (g > .5 && vis([1, 0, 0])) for (const sg of [-1, 1]) cellS += sfBall([c[0] + r[0] * .85, c[1] + sg * r[1] * .42, c[2] + r[2] * .32], 1.7 * g, matOf('#fffdf4'), .8, toneI, 4, 8) + sfBall([c[0] + r[0] * .85 + 1.3 * g, c[1] + sg * r[1] * .42, c[2] + r[2] * .3], .8 * g, matOf(INK), .3, toneI, 3, 6);
+    parts.push({ box: [[c[0] - r[0], c[1] - r[1], 9], [c[0] + r[0], c[1] + r[1], 9 + 2 * r[2]]], svg: cellS });
+  }
+  // bell jar over the dish (translucent, drawn after what is inside)
+  parts.push({ box: [[hD[0] - 31, hD[1] - 31, 9], [hD[0] + 31, hD[1] + 31, 37]], svg: hBell(bell) });
+  // pipes
+  const colA = fx > .28 && fx < .8 ? '#f8aa06' : SFC.steel.m, colB = fx > .28 && fx < .8 ? '#ffd57a' : SFC.steel.m;
+  parts.push(hPipe(hA, colA, 1.9), hPipe(hB, colB, 1.2));
+  // Pantry jar with its level
+  const pl = sfClamp(st.pantry / 0.5, 0, 1) * 28, PA = on(PZ(4), ellUV(hP[0], hP[1], 10, 10, 20)), PB = on(PZ(38), ellUV(hP[0], hP[1], 10, 10, 20)), ph = sp(hull([...PA, ...PB].map(p => P(...p))));
+  parts.push({ box: [[hP[0] - 11, hP[1] - 11, 4], [hP[0] + 11, hP[1] + 11, 40]], svg: (pl > .3 ? cyl(hP[0], hP[1], 4.8, 4.8 + Math.max(.6, pl), 9, SFC.cream, toneI, .8, 20) : '') + `<path d="${ph}" fill="#fff" opacity=".28"/>` + ink(ph, 1.6) + cyl(hP[0], hP[1], 38, 40, 10.5, SFC.steel, toneI, 1.1, 20) });
+  // splitter box on a short column, hopper above it
+  const sx0 = hS[0] - 11, sx1 = hS[0] + 11, sy0 = hS[1] - 11, sy1 = hS[1] + 11;
+  let sp2 = box(sx0, sy0, 38, sx1, sy1, 60, SFC.cream, toneI, 1.3) + box(hS[0] - 4, hS[1] - 4, 4, hS[0] + 4, hS[1] + 4, 38, SFC.steel, toneI, 1.1);
+  if (vis([1, 0, 0])) sp2 += tx(sx1 + .3, hS[1], 47, '80 / 20', 5.2, INK, 800);
+  if (k > .01) sp2 = `<g opacity="${f(1 - .8 * k)}">${sp2}</g>`;
+  parts.push({ box: [[sx0, sy0, 4], [sx1, sy1, 60]], svg: sp2 });
+  const rA = on(PZ(62), ellUV(hS[0], hS[1], 4.5, 4.5, 16)), rB = on(PZ(80), ellUV(hS[0], hS[1], 12, 12, 16));
+  parts.push({ box: [[hS[0] - 12, hS[1] - 12, 60], [hS[0] + 12, hS[1] + 12, 81]], svg: openShell(rA, rB, n => toneI(n, SFC.steel)) + ink(pd(rB), 1.2) });
+  // NEAR coin falls into the hopper
+  if (fx < .3) { const w = fx / .3, z = 112 - 112 * 0 - w * 38, sh = z < 74 ? Math.max(0, (z - 64) / 10) : 1;
+    if (sh > .05) { const cr = 6.5 * sh, ring = on(PZ(z + 1.6), ellUV(hS[0], hS[1], cr, cr, 20)), N = [[-2, -3], [-2, 3], [2, -3], [2, 3]].map(([u, v]) => [hS[0] + u * sh, hS[1] + v * sh, z + 1.7]);
+      parts.push({ box: [[hS[0] - 7, hS[1] - 7, z - 1], [hS[0] + 7, hS[1] + 7, z + 3]], svg: cyl(hS[0], hS[1], z, z + 1.6, cr, matOf('#2b2723'), toneI, 1, 20) + ink(pd(N, false), 1.4).replace(INK, '#fff4d6') }); } }
+  // drops along the two pipes: big for 80%, small for 20%
+  if (fx > .3 && fx < .8) { const w = (fx - .3) / .5;
+    for (let i = 0; i < 3; i++) { const s0 = sfClamp(w * 1.4 - i * .18, 0, 1); if (s0 > 0 && s0 < 1) { const p = pathAt(hA, s0); parts.push({ box: [[p[0] - 3, p[1] - 3, p[2] - 3], [p[0] + 3, p[1] + 3, p[2] + 3]], svg: sfBall(p, 2.3, SFC.amber, .9, toneI, 4, 9) }); } }
+    const q = pathAt(hB, sfClamp(w * 1.2, 0, 1)); parts.push({ box: [[q[0] - 2, q[1] - 2, q[2] - 2], [q[0] + 2, q[1] + 2, q[2] + 2]], svg: sfBall(q, 1.5, SFC.cream, .8, toneI, 4, 9) }); }
+  if (fx > .5 && fx < .66) { const z = 31 - (fx - .5) / .16 * 21; parts.push({ box: [[hD[0] + 1, hD[1] - 7, z - 2], [hD[0] + 7, hD[1] - 1, z + 2]], svg: sfBall([hD[0] + 4, hD[1] - 4, z], 2.3, SFC.amber, .9, toneI, 4, 9) }); }
+  // see-through extras: the splitter's gate (80 / 20 wheel) and the stomach and spores inside the new Snacc
+  if (k > 0) {
+    const gp = [], gz = 49, gate = (fx > .2 && fx < .8) ? Math.sin(Math.PI * ((fx - .2) / .6)) : 0;
+    gp.push({ box: [[hS[0] - 9, hS[1] - 9, 40], [hS[0] + 9, hS[1] + 9, 58]], svg: box(hS[0] - 9, hS[1] - 9, 40, hS[0] + 9, hS[1] + 9, 58, SFC.glass, toneI, 1)
+      + box(hS[0] - 1, hS[1] - 9, 42, hS[0] + 1, hS[1] + 9, 44, SFC.steel, toneI, .8)
+      + rod([hS[0], hS[1], 58], [hS[0] - 4, hS[1] - 5, 41], 1.1, SFC.steel, toneI, .8) + rod([hS[0], hS[1], 58], [hS[0] + 3, hS[1] + 5, 41], .7, SFC.steel, toneI, .8)
+      + cyl(hS[0], hS[1], 50, 52, 3.2 + 1.2 * gate, SFC.amber, toneI, 1, 14) });
+    s += `<g opacity="${f(k)}">${byDepth(gp)}</g>`;
+    if (g > .3) { const r = [10 * g, 10 * g, 9 * g], c = [hD[0], hD[1], 9 + r[2]];
+      s += `<g opacity="${f(k)}">${cyl(c[0], c[1], 9.2, 9.2 + 9.4 * g * sfClamp(st.stomach / .4, 0, 1) + .8, 4.2 * g, SFC.amber, toneI, 1, 14)}${sfBall([c[0] + 3, c[1] + 5, 9.6 + 1.6 * g], 1.5 * g, matOf(MOLC0), .8, toneI, 4, 8)}${sfBall([c[0] + 3, c[1] + 8.5, 9.6 + 1.6 * g], 1.5 * g, matOf(MOLC0), .8, toneI, 4, 8)}</g>`; }
+  }
+  return floor + byDepth(parts) + s + hLabels(st, k, g);
+}
+const MOLC0 = '#e8603c';
+function hLabels(st, k, g) {
+  if (k > .6) return xrCallouts([
+    { at: [hS[0], hS[1], 58], text: 'GATE', on: st.fx > .2 && st.fx < .8 }, { at: [hS[0] - 4, hS[1] - 5, 30], text: '80% PIPE', on: st.fx > .3 && st.fx < .8 },
+    { at: [hP[0], hP[1] + 8, 20], text: 'PANTRY 20%', on: st.fx > .5 && st.fx < .9 }, { at: [hD[0], hD[1] + 4, 12], text: 'STOMACH', on: g > 0 && st.fx < 1 },
+    { at: [hS[0], hS[1], 76], text: 'HOPPER', on: st.fx < .3 }, { at: [hD[0] + 6, hD[1] - 20, 12], text: 'SPORES', on: false } ], [0, 124, 0, 134, 0, 80]);
+  return tag([hS[0], hS[1], 78], -18, -34, 'NEAR IN', st.fx < .3) + tag([hS[0] + 11, hS[1], 50], 44, -14, 'SPLITTER', st.fx > .2 && st.fx < .8)
+    + tag([hP[0], hP[1] + 10, 24], 24, 12, 'PANTRY', st.fx > .5 && st.fx < .9) + tag([hD[0] - 18, hD[1] + 22, 14], -44, 12, 'DISH', false);
+}
+
+ui = mountFigure({
+  fig: '02', turn: 'full', title: 'The incubator', credit: false,
+  size: [124, 134, 84], center: [62, 67], palette: 'snacc',
+  state: fresh(),
+  scene: hScene,
+  stats: st => { const stake = STAKES[st.stakeI == null ? 1 : st.stakeI];
+    return [{ label: 'Stake (testnet NEAR)', value: fmt(stake) }, { label: 'Stomach 80% / Pantry 20%', value: `${fmt(Math.floor(stake * 1e4 * 8000 / 10000) / 1e4)} / ${fmt(Math.floor(stake * 1e4 * 2000 / 10000) / 1e4)}`, small: true },
+      { label: 'Snaccs hatched', value: String(st.n), small: true }, { label: 'Pantry so far', value: fmt(st.pantry), small: true }]; },
+  buttons: [
+    { label: 'Hatch', onClick: st => hHatch(st) },
+    { label: 'Stake', choices: st => STAKES.map((v, i) => ({ label: `${v} NEAR`, current: (st.stakeI == null ? 1 : st.stakeI) === i, onClick: s => { s.stakeI = i; say(`Stake ${v} NEAR: ${fmt(Math.floor(v * 1e4 * 8000 / 10000) / 1e4)} to the stomach, ${fmt(Math.floor(v * 1e4 * 2000 / 10000) / 1e4)} to the Pantry.`); } })) },
+    { label: 'Role', choices: st => HR.map((r, i) => ({ label: `${r.n}, BMR ${r.bmr}/h`, current: st.role === i, onClick: s => { s.role = i; say(`Role ${r.n}: role_mask ${r.mask}, bmr_per_hour ${r.bmr}. One role bit only.`); } })) },
+    { label: 'Empty the dish', onClick: st => { if (st.fx < 1) return say('Wait for the hatch to finish.'); st.last = null; st.grow = 0; st.stomach = 0; say('Dish emptied. Your Snaccs live on in your colony.'); } },
+  ],
+  params: (st, q) => { if (q.has('n')) { st.n = +q.get('n'); st.last = { stake: .25, toTre: .05, toStr: .2, role: 0 }; st.grow = 1; st.fx = 1; st.stomach = .2; st.pantry = .05 * st.n; }
+    if (q.has('fx')) { st.fx = +q.get('fx'); st.n = Math.max(1, st.n); st.last = { stake: .25, toTre: .05, toStr: .2, role: 0 }; st.pantry = Math.max(st.pantry, .05); st.stomach = .2; st.grow = st.fx > .62 ? 1 : 0; }
+    if (q.has('role')) st.role = +q.get('role') | 0; },
+});
+xrMount(() => ui, () => '');
+sfPrimary('Hatch');
+sfCenter(ui);
+</script></body></html>

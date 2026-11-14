@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>The Snacc organism</title></head><body>
+<script src="core.js"></script>
+<script src="snacc-fig.js"></script>
+<script>
+/* THE SNACC ORGANISM: a cutaway cell on a specimen tray.
+   Checked against contracts/snacc/src (state.rs constants and lib.rs methods); where the vault differs, the code wins.
+   - hatch: vitality 8500 (INITIAL_VITALITY), ATP 50 (INITIAL_ATP), generation 0, three organelle slots at level 0.
+     The stake splits 80% stomach / 20% Pantry (STAKE_TREASURY_BPS 2000). Here: 1000 u stake, 800 u stomach, 200 u Pantry.
+     u = 10^15 yocto-$SNACC, the unit ATP is minted in (ATP_YOCTO_UNIT). The app's default bite is far bigger; the shape is the same.
+   - feed_strain(strain_id, amount): effective_fee = amount * rescue_bps / 10000 is debited from the STOMACH (it does not fill it),
+     rescue_bps = 2000 + 8000 * effective_vitality / 10000 (EN-109). atp_minted = fee * efficiency/10000 * (10000 + 1000*mitokondria)/10000.
+     vitality = min(10000, effective_vitality + 500), last_fed = now. The fee then runs through CrucibleTemp (not drawn here).
+   - effective_vitality = vitality - floor(hours since last_fed) * bmr_per_hour * (10000 - 1000*lisosom)/10000   (lazy BMR, no timer).
+     bmr_per_hour: Extractor 100, Fermenter 120, Synthesizer 150.
+   - solvency: effective_vitality > 2000 Tier 1 (status Active); 1..2000 Tier 2 (Distressed); 0 Tier 3 (insolvent, open to harvest_starving_strain).
+   - allocate_atp: 1 ATP per level gained, level <= 5 (MAX_ORGANEL_LEVEL), once per epoch (24 h, EPOCH_DURATION_SEC).
+     mitokondria +10% ATP per level, nukleus +10% output per level, lisosom -10% BMR per level (EN-119).
+   - work by role: extract_spores 1 ATP, transmute_spores_to_enzyme 2 ATP, synthesize_elixir 3 ATP; each success gives vitality +500.
+   - the inventory is NEP-245-style accounting (mt:* token ids, no public mt_* methods): 9 molecules in 3 stages.
+   PARTS. Case: membrane (ellipsoid shell), specimen tray. Inside: stomach tank on a cradle, duct to the mitochondrion, fee stack through the
+   membrane, inventory shelf (3 planks, 9 vials, back panel, struts to the membrane), nucleus, lysosome, mitochondrion with ATP piles,
+   filaments holding each organelle to the membrane. Outside: vitality gauge with a status lamp, organelle console with 3 LED rows. */
+
+const ROLES = [
+  { n: 'Extractor',   bmr: 100, mask: '0b001', fn: 'extract_spores',             cost: 1 },
+  { n: 'Fermenter',   bmr: 120, mask: '0b010', fn: 'transmute_spores_to_enzyme', cost: 2 },
+  { n: 'Synthesizer', bmr: 150, mask: '0b100', fn: 'synthesize_elixir',          cost: 3 },
+];
+const MOL = [['ignis', 'cryo', 'lumin'], ['amalgam', 'redactase', 'synthase'], ['homunculus', 'homeostasis', 'aether']];
+const STAGE = ['spore', 'enzyme', 'elixir'];
+const MOLCOL = [['#e8603c', '#5bb5d6', '#f2cf3a'], ['#f2b230', '#e98aa6', '#6fbf8d'], ['#5fa86a', '#5a82c6', '#9b6fc9']];
+const ORG = [
+  { n: 'Mitokondria', what: '+10% ATP per level', mat: SFC.tomato },
+  { n: 'Nukleus',     what: '+10% output per level', mat: SFC.mint },
+  { n: 'Lisosom',     what: '-10% BMR per level', mat: { l: '#f3a6bb', m: '#d8869c', d: '#4b2430' } },
+];
+const BITE = 50, STAKE = 1000;
+
+const oC = [48, 72], oR0 = [32, 38, 30], oZ = 4;           // cell centre (x, y), radii, tray height
+const oGX = 64, oGY = 13, oGZ0 = 9, oGZ1 = 66;             // vitality gauge
+const oTX = 63, oTY = 78, oTZ0 = 16, oTZ1 = 44, oTR = 7.5; // stomach tank
+const oMito = [48, 96, 30], oNuc = [48, 58, 34], oLys = [52, 46, 40];
+const oSTK = [oTX, oTY];                                   // fee stack axis
+
+const bmrEff = st => Math.floor(ROLES[st.role].bmr * (10000 - 1000 * st.org[2]) / 10000);
+const effV = st => Math.max(0, st.vit - Math.floor(st.hrs - st.fedAt + 1e-9) * bmrEff(st));
+const tierOf = e => (e > 2000 ? 1 : e > 0 ? 2 : 3);
+const epochOf = st => Math.floor(st.hrs / 24 + 1e-9);
+const fresh = role => ({ role, vit: 8500, hrs: 0, hrsT: 0, fedAt: 0, atp: 50, stomach: STAKE * .8, pantry: STAKE * .2, org: [0, 0, 0],
+  inv: [[2, 0, 0], [0, 0, 0], [0, 0, 0]], lastAlloc: -1, spore: 1, vShow: 8500, sShow: STAKE * .8, aShow: 50, fx: 1, mouth: 0, sq: 0, blink: 0, flyAtp: 0 });
+
+let ui, oBusy = false;
+const say = (t, ms = 3000) => ui.flash(t, ms);
+
+function oLoop() {
+  if (oBusy) return; oBusy = true; let last = performance.now();
+  ui.animate(() => {
+    const st = ui.st, now = performance.now(), dt = Math.min(.05, (now - last) / 1000); last = now; let busy = false;
+    if (st.hrs < st.hrsT) { st.hrs = Math.min(st.hrsT, st.hrs + dt * 6 / (sfMs(900) / 1000)); busy = true; }
+    const fast = SF_REDUCED ? 1e9 : 1;
+    const v = sfChase(st.vShow, effV(st), 5200 * fast, dt), s = sfChase(st.sShow, st.stomach, 520 * fast, dt), a = sfChase(st.aShow, st.atp, 90 * fast, dt);
+    if (v !== st.vShow || s !== st.sShow || a !== st.aShow) busy = true;
+    st.vShow = v; st.sShow = s; st.aShow = a;
+    if (st.fx < 1) { st.fx = Math.min(1, st.fx + dt / (sfMs(1700) / 1000)); busy = true; }
+    st.mouth = st.fx < 1 ? Math.sin(Math.PI * Math.min(1, st.fx * 2.2)) : 0;
+    st.sq = st.fx < 1 ? Math.sin(Math.PI * Math.min(1, st.fx * 1.6)) : 0;
+    if (st.blink > 0) { st.blink = Math.max(0, st.blink - dt / .18); busy = true; }
+    if (!busy) oBusy = false;
+    return busy;
+  });
+}
+
+function oFeed(st) {
+  const eff = effV(st);
+  if (eff <= 0) return say('Refused: ERR_STRAIN_STARVING. A Snacc at 0 vitality cannot eat, and anyone may harvest it.');
+  if (st.stomach < BITE) return say('Refused: ERR_INSUFFICIENT_BALANCE. The stomach holds less than one bite. Re-hatch to refill.');
+  const rescue = 2000 + Math.floor(8000 * eff / 10000), fee = Math.max(1, Math.floor(BITE * rescue / 10000));
+  const atp = Math.floor(fee * (10000 + 1000 * st.org[0]) / 10000);
+  st.stomach -= fee; st.atp += atp; st.vit = Math.min(10000, eff + 500); st.fedAt = st.hrs; st.fx = 0; st.flyAtp = atp;
+  oLoop();
+  say(`Fed. feed_strain(${BITE}) burned ${fee} u from the stomach, minted ${atp} ATP, vitality +500.`);
+}
+function oPass(st) {
+  st.hrsT = Math.round(st.hrsT) + 6; oLoop();
+  const h = st.hrsT - st.fedAt, e = Math.max(0, st.vit - Math.floor(h) * bmrEff(st));
+  say(`${st.hrsT} h on the clock. BMR ${bmrEff(st)}/h, effective vitality ${sfN(e)}. Epoch ${Math.floor(st.hrsT / 24)}.`);
+}
+function oWork(st) {
+  const eff = effV(st), r = st.role, R = ROLES[r];
+  if (eff <= 0) return say('Refused: ERR_STRAIN_STARVING. Feed first, or it is too late.');
+  if (st.atp < R.cost) return say(`Refused: ERR_NOT_ENOUGH_ATP. ${R.fn} costs ${R.cost} ATP.`);
+  const inv = st.inv, nuk = st.org[1]; let msg = '';
+  if (r === 0) { const t = st.spore % 3; inv[0][t] += 1; st.spore = (t + 1) % 3; msg = `minted 1 mt:spore-${MOL[0][t]}`; }
+  else if (r === 1) {
+    const burn = 2, k = 1, minted = Math.floor(burn * (10000 + 1000 * nuk) / 10000); let out = -1;
+    if (inv[0][0] >= burn) { inv[0][0] -= burn; out = 0; } else if (inv[0][0] >= k && inv[0][2] >= k) { inv[0][0] -= k; inv[0][2] -= k; out = 1; } else if (inv[0][1] >= burn) { inv[0][1] -= burn; out = 2; }
+    if (out < 0) return say('Refused: ERR_INSUFFICIENT_BALANCE. No spores to ferment. Use the Extractor role to make some.');
+    inv[1][out] += minted; msg = `burned 2 spores, minted ${minted} mt:enzyme-${MOL[1][out]}`;
+  } else {
+    if (inv[1][0] >= 2 && inv[1][2] >= 1) { inv[1][0] -= 2; inv[1][2] -= 1; inv[2][0] += 1; msg = 'minted 1 mt:elixir-homunculus (2 amalgam + 1 synthase)'; }
+    else if (inv[1][0] >= 1 && inv[1][1] >= 1) { inv[1][0] -= 1; inv[1][1] -= 1; inv[2][1] += 1; msg = 'minted 1 mt:elixir-homeostasis (1 amalgam + 1 redactase)'; }
+    else return say('Refused: ERR_RECIPE_NOT_MET. No enzyme batch. Use the Fermenter role to make enzymes.');
+  }
+  st.atp -= R.cost; st.vit = Math.min(10000, eff + 500); st.fedAt = st.hrs; st.fx = 0; st.flyAtp = 0; oLoop();
+  say(`${R.fn}: ${msg}. -${R.cost} ATP, vitality +500.`);
+}
+function oAlloc(st, i) {
+  const ep = epochOf(st);
+  if (st.lastAlloc === ep) return say('Refused: ERR_ALREADY_ALLOCATED. allocate_atp works once per epoch (24 h). Let time pass.');
+  if (st.org[i] >= 5) return say('Refused: ERR_ORGANEL_LEVEL_MAX. Maximum level is 5.');
+  if (st.atp < 1) return say('Refused: ERR_NOT_ENOUGH_ATP. Each level costs 1 ATP.');
+  st.org[i] += 1; st.atp -= 1; st.lastAlloc = ep; oLoop();
+  say(`allocate_atp: ${ORG[i].n} is level ${st.org[i]} (${ORG[i].what}). -1 ATP.`);
+}
+
+/* ---------- parts ---------- */
+const oCellMat = (st, m) => { const t = tierOf(effV(st)); return t === 1 ? m : t === 2 ? { l: mix(m.l, '#f2826a', .3), m: mix(m.m, '#d9573f', .3), d: mix(m.d, '#5a2418', .2) } : { l: mix(m.l, '#c9c5b8', .6), m: mix(m.m, '#9a9588', .6), d: mix(m.d, '#4a463e', .5) }; };
+
+function oEyes(st, C0, R) {
+  const t = tierOf(effV(st)); let s = '';
+  const surf = (lon, lat) => { const cl = Math.cos(lat), p = [C0[0] + R[0] * cl * Math.cos(lon), C0[1] + R[1] * cl * Math.sin(lon), C0[2] + R[2] * Math.sin(lat)];
+    const n = norm([(p[0] - C0[0]) / R[0] ** 2, (p[1] - C0[1]) / R[1] ** 2, (p[2] - C0[2]) / R[2] ** 2]);
+    const u = norm([-R[0] * cl * Math.sin(lon), R[1] * cl * Math.cos(lon), 0]), v = norm(cross(n, u)); return { p, n, u, v }; };
+  const disc = (S, ru, rv, lift, nn = 16) => Array.from({ length: nn }, (_, i) => { const a = i / nn * 2 * Math.PI; return [0, 1, 2].map(j => S.p[j] + S.n[j] * lift + S.u[j] * ru * Math.cos(a) + S.v[j] * rv * Math.sin(a)); });
+  for (const sgn of [-1, 1]) {
+    const S = surf(sgn * .36, .2); if (rotV(S.n).reduce((a, b) => a + b, 0) < .45) continue;
+    const ry = t === 3 ? 1 : st.blink > .5 ? .5 : t === 2 ? 3.4 : 4.6;
+    s += fill(pd(disc(S, 4.2, ry, .6)), '#fffdf4') + ink(pd(disc(S, 4.2, ry, .6)), 1.1);
+    if (t === 3) { const a = 2.6; s += ink(pd([[0, 0], [1, 1]].map(([i, j]) => [0, 1, 2].map(q => S.p[q] + S.n[q] * .8 + S.u[q] * a * (i ? 1 : -1) + S.v[q] * a * (j ? 1 : -1))), false), 1.3)
+      + ink(pd([[0, 1], [1, 0]].map(([i, j]) => [0, 1, 2].map(q => S.p[q] + S.n[q] * .8 + S.u[q] * a * (i ? 1 : -1) + S.v[q] * a * (j ? 1 : -1))), false), 1.3); }
+    else if (st.blink <= .5) s += fill(pd(disc({ ...S, p: S.p.map((c, q) => c + S.u[q] * -.6 * sgn) }, 1.8, 2.2, .8, 10)), INK);
+  }
+  const M = surf(0, -.3), a = st.mouth;
+  if (rotV(M.n).reduce((x, y) => x + y, 0) > .45) {
+    const line = Array.from({ length: 9 }, (_, i) => { const x = (i / 8 - .5) * 2; return [0, 1, 2].map(q => M.p[q] + M.n[q] * .7 + M.u[q] * x * 4.6 + M.v[q] * ((t === 1 ? -1 : 1) * (1 - x * x) * 1.6 * (t === 3 ? 0 : 1) - 0)); });
+    s += a > .08 ? fill(pd(disc(M, 3.6, 1 + 2.8 * a, .7)), '#3a1f14') + ink(pd(disc(M, 3.6, 1 + 2.8 * a, .7)), 1.1) : ink(pd(line, false), 1.4);
+  }
+  return s;
+}
+
+function oGauge(st, m) {
+  const t = tierOf(st.vShow), h = (oGZ1 - oGZ0) * sfClamp(st.vShow / 10000, 0, 1), liq = t === 1 ? SFC.mint : SFC.tomato;
+  const A = on(PZ(oGZ0), ellUV(oGX, oGY, 5, 5, 20)), B = on(PZ(oGZ1), ellUV(oGX, oGY, 5, 5, 20));
+  let s = box(oGX - 8, oGY - 8, 4, oGX + 8, oGY + 8, oGZ0, SFC.cream, toneI, 1.2);
+  if (h > .4) s += cyl(oGX, oGY, oGZ0, oGZ0 + h, 3.7, liq, toneI, .8, 16);
+  const gh = sp(hull([...A, ...B].map(p => P(...p))));
+  s += `<path d="${gh}" fill="#ffffff" opacity=".3"/>` + ink(gh, 1.5);
+  const z20 = oGZ0 + (oGZ1 - oGZ0) * .2;
+  s += `<path d="${sfRing(oGX, oGY, z20, 5.4)}" fill="none" stroke="${SF_RED}" stroke-width="${f(1.4 * INK_K)}"/>` + ink(sfRing(oGX, oGY, oGZ1, 5.4), 1);
+  s += cyl(oGX, oGY, oGZ1, oGZ1 + 3, 5.6, SFC.steel, toneI, 1.2, 16);
+  const lamp = t === 1 ? SF_GREEN : t === 2 ? '#f8aa06' : SF_RED;
+  s += sfBall([oGX, oGY, oGZ1 + 6], 2.8, matOf(lamp), 1.1, toneI, 5, 10);
+  return { svg: s, box: [[oGX - 8, oGY - 8, 4], [oGX + 8, oGY + 8, oGZ1 + 10]] };
+}
+
+function oConsole(st) {
+  const x0 = 82, x1 = 96, y0 = 54, y1 = 100, z1 = 11; let s = box(x0, y0, 4, x1, y1, z1, SFC.cream, toneI, 1.2);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) {
+    const lit = c < st.org[r], cx = x0 + 3.2 + r * 4.0, cy = y0 + 6 + c * 8.4, mat = ORG[r].mat;
+    const d = on(PZ(z1 + .08), ellUV(cx, cy, 2.1, 2.1, 12));
+    s += fill(pd(d), lit ? mat.m : '#d9d0b6') + ink(pd(d), .8);
+    if (lit) s += fill(pd(on(PZ(z1 + .1), ellUV(cx - .5, cy - .5, .8, .8, 8))), mat.l);
+  }
+  return { svg: s, box: [[x0, y0, 4], [x1, y1, z1]] };
+}
+
+function oStack(st) {
+  const [x, y] = oSTK;
+  return { svg: cyl(x, y, 58, 76, 3.2, SFC.steel, toneI, 1.2, 14) + `<path d="${sfRing(x, y, 76, 3.2, 14)}" fill="${SFC.ink.d}" stroke="${INK}" stroke-width="${f(1 * INK_K)}"/>`, box: [[x - 4, y - 4, 56], [x + 4, y + 4, 77]] };
+}
+
+/* the inside of the cell */
+function oMech(st, k) {
+  const parts = [], put = (b, svg) => parts.push({ box: b, svg });
+  // inventory shelf: back panel, 3 planks, 9 vials, struts out to the membrane
+  put([[29, 52, 16], [30, 92, 53]], box(29, 52, 16, 30.4, 92, 53, SFC.agar, toneI, .8));
+  for (let s = 0; s < 3; s++) {
+    const zb = 16 + 12 * s; put([[30, 52, zb], [37, 92, zb + 1.4]], box(30, 52, zb, 37, 92, zb + 1.4, SFC.cream, toneI, .8));
+    for (let c = 0; c < 3; c++) {
+      const y = 58 + 14 * c, z0 = zb + 1.4, cnt = st.inv[s][c], col = MOLCOL[s][c], fillH = Math.min(1, cnt / 4) * 5.4;
+      let v = cyl(33.5, y, z0, z0 + 8, 3.3, SFC.glass, toneI, .9, 12);
+      if (cnt > 0) v += cyl(33.5, y, z0 + .6, z0 + .6 + Math.max(1, fillH), 2.7, matOf(col), toneI, .7, 12);
+      v += cyl(33.5, y, z0 + 8, z0 + 9.4, 3.6, SFC.ink, toneI, .8, 12);
+      if (cnt > 0 && vis([1, 0, 0])) v += tx(36.9, y, z0 + 3, String(Math.min(99, cnt)), 3.6, INK, 800);
+      put([[30, y - 3.7, z0], [37, y + 3.7, z0 + 9.6]], v);
+    }
+  }
+  for (const [y, z] of [[54, 22], [90, 22], [54, 50], [90, 50]]) parts.push(sfWire([[29.5, y, z], [24, y + (y < 70 ? -2 : 2), z]], SFC.cream.m, .45));
+  // stomach tank on a cradle, liquid = the $SNACC balance
+  const fillK = sfClamp(st.sShow / (STAKE * .8), 0, 1), lh = (oTZ1 - oTZ0 - 2) * fillK;
+  put([[oTX - 9, oTY - 9, 14], [oTX + 9, oTY + 9, 47]],
+    box(oTX - 9, oTY - 9, 14, oTX + 9, oTY + 9, oTZ0, SFC.cream, toneI, .9)
+    + (lh > .4 ? cyl(oTX, oTY, oTZ0 + 1, oTZ0 + 1 + lh, oTR - .7, SFC.amber, toneI, .8, 18) : '')
+    + `<path d="${sp(hull([...on(PZ(oTZ0), ellUV(oTX, oTY, oTR, oTR, 18)), ...on(PZ(oTZ1), ellUV(oTX, oTY, oTR, oTR, 18))].map(p => P(...p))))}" fill="#fff" opacity=".28"/>`
+    + ink(sp(hull([...on(PZ(oTZ0), ellUV(oTX, oTY, oTR, oTR, 18)), ...on(PZ(oTZ1), ellUV(oTX, oTY, oTR, oTR, 18))].map(p => P(...p)))), 1.6)
+    + cyl(oTX, oTY, oTZ1, oTZ1 + 2, oTR + .4, SFC.steel, toneI, 1, 18));
+  for (const [dx, dy] of [[-5, -5], [5, -5], [0, 6]]) parts.push({ box: [[oTX + dx - 1, oTY + dy - 1, 6], [oTX + dx + 1, oTY + dy + 1, 15]], svg: rod([oTX + dx, oTY + dy, 15], [oTX + dx * 1.3, oTY + dy * 1.3, 6.5], .7, SFC.cream, toneI, .6) });
+  // duct from the tank to the mitochondrion, and the fee stack out through the membrane
+  const duct = [[oTX, oTY + 7, 22], [oTX - 3, oTY + 12, 22], [oMito[0] + 5, oMito[1] - 6, 26], [oMito[0] + 3, oMito[1] - 2, 29]];
+  parts.push(sfWire(duct, SFC.steel.m, .9));
+  put([[oTX - 2, oTY - 2, oTZ1 + 1], [oTX + 2, oTY + 2, 62]], rod([oTX, oTY, oTZ1 + 2], [oTX, oTY, 60], 1.7, SFC.steel, toneI, .7));
+  // organelles, grown with their level
+  const mr = 1 + .06 * st.org[0], nr = 7.5 + .9 * st.org[1], lr = 4.5 + .7 * st.org[2];
+  const mR = [7 * mr, 10.5 * mr, 6 * mr], mB = [[oMito[0] - mR[0], oMito[1] - mR[1], oMito[2] - mR[2]], [oMito[0] + mR[0], oMito[1] + mR[1], oMito[2] + mR[2]]];
+  put(mB, sfBall(oMito, mR, ORG[0].mat, 1.5, toneI, 7, 16) + sfBall([oMito[0] + 5, oMito[1] - 2, oMito[2] + 1.5], [1.5, 6.5, 2.2], matOf(SFC.tomato.d), .6, toneI, 4, 10));
+  put([[oNuc[0] - nr, oNuc[1] - nr, oNuc[2] - nr], [oNuc[0] + nr, oNuc[1] + nr, oNuc[2] + nr]], sfBall(oNuc, nr, ORG[1].mat, 1.5, toneI, 7, 16) + sfBall([oNuc[0] + nr * .45, oNuc[1] + nr * .25, oNuc[2] + nr * .3], nr * .32, matOf(SFC.mint.d), .7, toneI, 5, 10));
+  put([[oLys[0] - lr, oLys[1] - lr, oLys[2] - lr], [oLys[0] + lr, oLys[1] + lr, oLys[2] + lr]], sfBall(oLys, lr, ORG[2].mat, 1.4, toneI, 6, 14)
+    + [[.55, .2, .55], [.3, -.6, .2], [.2, .5, -.5]].map(d => sfBall([oLys[0] + d[0] * lr * .75, oLys[1] + d[1] * lr * .75, oLys[2] + d[2] * lr * .75], lr * .2, matOf(SFC.tomato.d), .5, toneI, 3, 8)).join(''));
+  // filaments holding each organelle and the tank to the membrane
+  parts.push({ box: [[20, 50, 30], [44, 60, 38]], svg: rod([oNuc[0] - nr * .8, oNuc[1] - 1, oNuc[2]], [22, 52, 33], .5, SFC.cream, toneI, .4) });
+  parts.push({ box: [[48, 100, 22], [60, 112, 34]], svg: rod([oMito[0] + 2, oMito[1] + mR[1] * .9, oMito[2] - 2], [oMito[0] + 6, 108, oMito[2] - 4], .5, SFC.cream, toneI, .4) });
+  parts.push({ box: [[48, 38, 36], [60, 46, 44]], svg: rod([oLys[0], oLys[1] - lr * .9, oLys[2]], [oLys[0] + 4, 38.5, oLys[2] + 2], .5, SFC.cream, toneI, .4) });
+  // ATP: hexagon tokens piled on the mitochondrion
+  const n = Math.min(8, Math.ceil(st.aShow / 8)), bob = sfAmbient ? Math.sin(performance.now() / 700) * .35 : 0;
+  for (let i = 0; i < n; i++) {
+    const col = i % 2, row = Math.floor(i / 2), x = oMito[0] - 2, y = oMito[1] - 3 + col * 7, z = oMito[2] + mR[2] - .6 + row * 1.35 + (i === n - 1 ? bob : 0);
+    put([[x - 3, y - 3, z], [x + 3, y + 3, z + 1.3]], sfToken(x, y, z, 2.9, SFC.amber, 6, 1.15));
+  }
+  // flow: a droplet down the duct, then ATP sparks over the mitochondrion
+  if (st.fx < 1) {
+    const q = sfClamp(st.fx / .5, 0, 1), seg = duct.length - 1, f0 = Math.min(seg - .001, q * seg), i0 = Math.floor(f0), a = f0 - i0;
+    const p = [0, 1, 2].map(j => duct[i0][j] + (duct[i0 + 1][j] - duct[i0][j]) * a);
+    if (q < 1) put([[p[0] - 2, p[1] - 2, p[2] - 2], [p[0] + 2, p[1] + 2, p[2] + 2]], sfBall(p, 2, SFC.amber, 1, toneI, 4, 10));
+    if (st.flyAtp > 0 && st.fx > .45) { const w = (st.fx - .45) / .55; put([[40, 86, 36], [60, 106, 50]], [0, 1, 2].map(i => sfSpark(oMito[0] - 2 + (i - 1) * 6, oMito[1] - 1 + (i - 1) * 5, oMito[2] + mR[2] + 4 + w * 5 + i * 1.5, 2.6 * (1 - w * .5))).join('')); }
+    const cz = 46 + (80 - 46) * sfClamp((st.fx - .15) / .6, 0, 1);
+    if (st.fx > .15 && cz < 60) put([[oTX - 2, oTY - 2, cz - 2], [oTX + 2, oTY + 2, cz + 2]], sfBall([oTX, oTY, cz], 2.1, SFC.amber, 1, toneI, 4, 10));
+  }
+  return byDepth(parts);
+}
+
+function oScene(st, m) {
+  const k = ease(st.xr || 0), sq = st.sq, R = [oR0[0] * (1 + .04 * sq), oR0[1] * (1 + .04 * sq), oR0[2] * (1 - .07 * sq)], C0 = [oC[0], oC[1], oZ + R[2]];
+  const rings = sfRings(C0, R, 9, 22), cm = oCellMat(st, m), tier = tierOf(effV(st));
+  const FRONT = vis([1, 0, 0]);
+  let s = board(0, 0, 100, 125, oZ, 6, SF_BOARD) + castShadow([...sfPts(rings), [oGX - 5, oGY - 5, oGZ1 + 8], [oGX + 5, oGY + 5, oGZ1 + 8], [92, 54, 11], [92, 100, 11], [oSTK[0], oSTK[1], 76]], oZ, boardTop(0, 0, 100, 125, oZ, 6));
+  const parts = [];
+  let cell;
+  if (k > 0) cell = `<g opacity="${f(.5 * k)}">${sfFar(rings, cm)}</g>` + `<g opacity="${f(k)}">${oMech(st, k)}</g>` + `<g opacity="${f(1 - .8 * k)}">${sfSkin(rings, cm)}</g>` + `<g opacity="${f(1 - .4 * k)}">${hullInk(sfPts(rings), 2.8)}</g>`;
+  else cell = sfSkin(rings, cm) + hullInk(sfPts(rings), 2.8);
+  cell += `<g opacity="${f(1 - .85 * k)}">${oEyes(st, C0, R)}</g>`;
+  parts.push({ box: [[C0[0] - R[0], C0[1] - R[1], oZ], [C0[0] + R[0], C0[1] + R[1], oZ + 2 * R[2]]], svg: cell });
+  const g = oGauge(st, m), c = oConsole(st), sk = oStack(st);
+  parts.push({ box: g.box, svg: g.svg }, { box: c.box, svg: c.svg }, { box: sk.box, svg: sk.svg });
+  // the fee coin leaves through the stack
+  if (st.fx < 1 && st.fx > .55) { const w = (st.fx - .55) / .45, z = 78 + w * 26; parts.push({ box: [[oSTK[0] - 5, oSTK[1] - 5, z], [oSTK[0] + 5, oSTK[1] + 5, z + 2]], svg: `<g opacity="${f(1 - w * .8)}">${sfToken(oSTK[0], oSTK[1], z, 4.6, SFC.amber, 20, 1.5)}</g>` }); }
+  s += byDepth(parts);
+  const closedTags = () => tag([oGX, oGY, oGZ1 + 8], -62, -8, 'VITALITY', false) + tag([89, 100, 11], 36, 24, 'SLOT LEDS', false)
+    + tag([oSTK[0], oSTK[1], 76], 50, -10, 'FEE STACK', st.fx < 1 && st.fx > .4) + tag([C0[0] - 6, C0[1] + R[1] * .8, C0[2] + 4], 34, 8, 'MEMBRANE', false);
+  s += k > .6 ? xrCallouts([
+    { at: [oTX, oTY, oTZ1 - 6], text: 'STOMACH', on: st.fx < .5 },
+    { at: [33.5, 74, 52], text: 'INVENTORY', on: false },
+    { at: [oNuc[0], oNuc[1] - 6, oNuc[2] + 8], text: 'NUCLEUS', on: false },
+    { at: [oMito[0], oMito[1] + 6, oMito[2]], text: 'MITOCHONDRIA', on: st.fx > .4 && st.fx < 1 },
+    { at: [oLys[0], oLys[1] - 4, oLys[2] + 4], text: 'LYSOSOME', on: false },
+    { at: [oMito[0] - 2, oMito[1] - 3, oMito[2] + 9], text: 'ATP', on: st.flyAtp > 0 && st.fx < 1 },
+    { at: [oTX - 3, oTY + 11, 22], text: 'DUCT', on: st.fx < .5 },
+    { at: [oGX, oGY, oGZ1 + 8], text: 'VITALITY', on: false },
+    { at: [89, 78, 11], text: 'SLOT LEDS', on: false },
+    { at: [oSTK[0], oSTK[1], 76], text: 'FEE STACK', on: st.fx > .5 && st.fx < 1 } ], [0, 100, 0, 125, 0, 90]) : closedTags();
+  return s;
+}
+
+ui = mountFigure({
+  fig: '01', turn: 'full', title: 'The Snacc organism', credit: false,
+  size: [100, 125, 125], center: [50, 62.5], palette: 'snacc',
+  state: fresh(0),
+  scene: oScene,
+  stats: st => { const e = effV(st), t = tierOf(e);
+    return [{ label: 'Vitality / 10,000', value: sfN(e) }, { label: 'Solvency', value: t === 1 ? 'Tier 1 · Active' : t === 2 ? 'Tier 2 · Distressed' : 'Tier 3 · insolvent', small: true },
+      { label: '$ATP', value: sfN(st.atp), small: true }, { label: 'Stomach (u)', value: sfN(st.stomach), small: true }]; },
+  buttons: [
+    { label: 'Feed', onClick: st => oFeed(st) },
+    { label: 'Work', onClick: st => oWork(st) },
+    { label: '6 hours pass', onClick: st => oPass(st) },
+    { label: 'Allocate ATP', choices: st => ORG.map((o, i) => ({ label: `${o.n}, level ${st.org[i]}`, disabled: st.lastAlloc === epochOf(st) || st.org[i] >= 5 || st.atp < 1,
+      why: st.lastAlloc === epochOf(st) ? 'Once per epoch (24 h): let time pass first' : st.org[i] >= 5 ? 'Maximum level is 5' : 'Not enough ATP', onClick: s => oAlloc(s, i) })) },
+    { label: 'Role', choices: st => ROLES.map((r, i) => ({ label: `${r.n}, BMR ${r.bmr}/h`, current: st.role === i, onClick: s => { Object.assign(s, fresh(i)); say(`Re-hatched as ${r.n} (role_mask ${r.mask}), BMR ${r.bmr}/h. 800 u stomach, 200 u to the Pantry.`); oLoop(); } })) },
+    { label: 'Re-hatch', onClick: st => { Object.assign(st, fresh(st.role)); say('Re-hatched: vitality 8500, ATP 50, stomach 800 u (80% of a 1000 u stake).'); oLoop(); } },
+  ],
+  params: (st, q) => {
+    if (q.has('role')) Object.assign(st, fresh(+q.get('role') | 0));
+    if (q.has('hours')) { st.hrs = st.hrsT = +q.get('hours'); st.vShow = effV(st); }
+    for (const [key, f2] of [['vit', v => { st.vit = v; st.vShow = effV(st); }], ['atp', v => { st.atp = st.aShow = v; }], ['stomach', v => { st.stomach = st.sShow = v; }]]) if (q.has(key)) f2(+q.get(key));
+    if (q.has('org')) st.org = q.get('org').split('.').map(Number);
+    if (q.has('inv')) { const a = q.get('inv').split('.').map(Number); st.inv = [a.slice(0, 3), a.slice(3, 6), a.slice(6, 9)]; }
+  },
+});
+xrMount(() => ui, () => '');
+sfPrimary('Feed');
+sfCenter(ui);
+if (sfAmbient) setInterval(() => { if (!document.hidden && ui.st.fx >= 1) { ui.st.blink = 1; oLoop(); } }, 4200);
+</script></body></html>

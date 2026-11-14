@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>The CrucibleTemp thermometer</title></head><body>
+<script src="core.js"></script>
+<script src="snacc-fig.js"></script>
+<script>
+/* THE CRUCIBLETEMP THERMOMETER: the algorithmic central bank as a lab instrument.
+   Checked against contracts/snacc/src/state.rs (constants) and lib.rs (get_crucible_temp, zone_at, apply_thermostat_fee,
+   accrue_dividend_inflow).
+   - CrucibleTemp (mK) = floor(1000 * V_decayed / max(total_snacc_supply, 1)); volume decays by VOLUME_DECAY_PER_SEC = 50.
+   - zones: temp > FEVER_THRESHOLD_MK (610) = Fever; temp < HYPOTHERMIA_THRESHOLD_MK (600) = Hypothermia; 600..=610 = Normal.
+   - Fever: the fee is burned at FEVER_BURN_BPS 350 (3.5%); holding mt:elixir-homeostasis halves the burn (LC-11).
+   - non-burned fee: DIVIDEND_INFLOW_BPS 5000 (50%) to the dividend pool, the rest to the Pantry (Rule-Bound Treasury).
+   - Hypothermia: a rebate of REBATE_BPS 200 (2.0%) of the fee from the Pantry to the Snacc, capped at MAX_EPOCH_TREASURY_DRAIN_BPS 500
+     (5% of the Pantry per epoch). The cap is not modelled; the toast says so.
+   The scale is zoomed to 540..680 mK so the 10 mK Normal band is visible; the real value can be anything from 0 up.
+   PARTS. Thermometer (bulb, glass tube, liquid, scale plate with zone bands, two valve levers), fee hopper, furnace with chimney and flame,
+   Pantry jar, dividend jar, four pipes (burn, Pantry, dividend, rebate). See-through: the bulb's drain and the furnace's ember bed. */
+
+const T0 = 540, T1 = 680, FEE = 1000;
+const zNames = ['Hypothermia', 'Normal', 'Fever'], zCol = ['#76b9cb', '#6fbf8d', '#d9573f'];
+const zoneOf = t => (t > 610 ? 2 : t < 600 ? 0 : 1);
+const zT = t => 24 + (t - T0) / (T1 - T0) * 80;
+const TX = 45, TY = 66;                                                      // thermometer axis
+const pF = [[14, 66, 58], [14, 66, 16], [14, 34, 16], [34, 22, 16]];          // fee to the furnace (burn)
+const pP = [[14, 66, 16], [14, 100, 16], [37, 100, 16]];                      // to the Pantry jar
+const pD = [[14, 100, 12], [14, 122, 12], [37, 122, 12]];                     // to the dividend jar
+const pR = [[45, 100, 32], [45, 100, 50], [14, 100, 50], [14, 72, 50]];       // rebate back from the Pantry to the hopper
+const fresh = () => ({ T: 605, Ts: 605, shield: 0, fx: 1, burned: 0, pantry: 0, divPool: 0, rebate: 0, feeds: 0, mode: 1 });
+let ui, cBusy = false;
+const say = (t, ms = 3600) => ui.flash(t, ms);
+const pathAt = (path, s) => { const seg = path.length - 1, f0 = Math.min(seg - 1e-6, Math.max(0, s) * seg), i = Math.floor(f0), a = f0 - i; return [0, 1, 2].map(j => path[i][j] + (path[i + 1][j] - path[i][j]) * a); };
+const num = n => (Math.round(n * 10) / 10).toString();
+
+function cLoop() {
+  if (cBusy) return; cBusy = true; let last = performance.now();
+  ui.animate(() => { const st = ui.st, now = performance.now(), dt = Math.min(.05, (now - last) / 1000); last = now; let busy = false;
+    const t = sfChase(st.Ts, st.T, 90 * (SF_REDUCED ? 1e6 : 1), dt); if (t !== st.Ts) { st.Ts = t; busy = true; }
+    if (st.fx < 1) { st.fx = Math.min(1, st.fx + dt / (sfMs(2400) / 1000)); busy = true; }
+    if (!busy) cBusy = false; return busy; });
+}
+function cFeed(st) {
+  if (st.fx < 1) return say('One fee at a time.');
+  const z = zoneOf(Math.round(st.T)); let burn = 0, reb = 0;
+  if (z === 2) burn = FEE * 350 / 10000 * (st.shield ? .5 : 1);
+  const net = FEE - burn, div = net * 5000 / 10000, pan = net - div;
+  if (z === 0) reb = FEE * 200 / 10000;
+  st.burned += burn; st.divPool += div; st.pantry += pan - reb; st.rebate += reb; st.feeds += 1; st.fx = 0; st.lastZ = z; st.lastBurn = burn; st.lastReb = reb; cLoop();
+  const m = z === 2 ? `Fever (${st.T} mK): fee ${FEE} u, burn ${num(burn)} u (3.5%${st.shield ? ', halved by homeostasis' : ''}), dividend pool ${num(div)} u, Pantry ${num(pan)} u.`
+    : z === 1 ? `Normal (${st.T} mK): no burn, no rebate. Fee ${FEE} u: dividend pool ${num(div)} u, Pantry ${num(pan)} u.`
+    : `Hypothermia (${st.T} mK): rebate ${num(reb)} u (2.0%) from the Pantry back to the Snacc. Capped at 5% of the Pantry per epoch.`;
+  say(m, 4600);
+}
+function cSet(st, v) { st.T = Math.round(v); st.mode = zoneOf(st.T); cLoop(); }
+
+function cScene(st, m) {
+  const k = ease(st.xr || 0), T = st.Ts, z = zoneOf(Math.round(T)), fx = st.fx, parts = [];
+  const floor = board(0, 0, 100, 140, 4, 6, SF_BOARD) + castShadow([[TX, TY, 112], [TX, TY, 112], [44, 22, 56], [14, 66, 78], [45, 122, 32]], 4, boardTop(0, 0, 100, 140, 4, 6));
+  // thermometer: bulb, tube, liquid, scale plate with the three zone bands
+  const zz = zT(T), liq = matOf(zCol[z]);
+  const bulb = sfRings([TX, TY, 21], [10, 10, 10], 7, 16), tube = [on(PZ(24), ellUV(TX, TY, 4.4, 4.4, 16)), on(PZ(110), ellUV(TX, TY, 4.4, 4.4, 16))];
+  const tubeH = sp(hull([...tube[0], ...tube[1]].map(p => P(...p))));
+  let th = sfSkin(bulb, liq, toneI) + cyl(TX, TY, 24, Math.max(25, zz), 2.9, liq, toneI, .9, 14);
+  th += `<path d="${tubeH}" fill="#fff" opacity="${f(.3 - .2 * k)}"/>` + ink(tubeH, 1.5) + hullInk(sfPts(bulb), 1.6);
+  th += cyl(TX, TY, 110, 113, 4.8, SFC.steel, toneI, 1, 14);
+  if (k > 0) th += `<g opacity="${f(k)}">${cyl(TX, TY, 13, 15, 6.2, SFC.steel, toneI, .8, 14)}${sfBall([TX + 3, TY + 3, 18], 2.4, SFC.amber, .8, toneI, 4, 8)}${sfBall([TX - 3, TY - 2, 22], 1.8, SFC.amber, .8, toneI, 4, 8)}</g>`;
+  parts.push({ box: [[TX - 10, TY - 10, 4], [TX + 10, TY + 10, 114]], svg: th });
+  let plate = box(35, TY - 11, 24, 38, TY + 11, zT(600), matOf('#8fc4d2'), toneI, 1) + box(35, TY - 11, zT(600), 38, TY + 11, zT(610), matOf('#8fd0a6'), toneI, 1) + box(35, TY - 11, zT(610), 38, TY + 11, 104, matOf('#e48a76'), toneI, 1);
+  for (let t = 560; t <= 680; t += 20) plate += ink(pd([[38.2, TY - 11, zT(t)], [38.2, TY - 6.5, zT(t)]], false), .9);
+  if (vis([1, 0, 0])) plate += tx(38.4, TY + 8, 108.5, 'mK', 3.6, INK, 800) + tx(38.4, TY + 8, zT(560) + 1.5, '560', 3, INK, 700) + tx(38.4, TY + 8, zT(620) + 1.5, '620', 3, INK, 700) + tx(38.4, TY + 8, zT(660) + 1.5, '660', 3, INK, 700);
+  // valve levers at the two thresholds: lit when that zone is on
+  const lev = (zv, on2, col) => box(35, TY + 12, zv - 2, 40, TY + 17, zv + 2, matOf(on2 ? col : '#cfc6aa'), toneI, 1) + sfBall([37.5, TY + 14.5, zv + 4.2], 1.5, matOf(on2 ? SF_GREEN : '#a39a82'), .6, toneI, 4, 8);
+  parts.push({ box: [[35, TY - 11, 24], [38.6, TY + 11, 104]], svg: plate }, { box: [[35, TY + 12, zT(600) - 3], [40, TY + 18, zT(610) + 6]], svg: lev(zT(600), z === 0, '#76b9cb') + lev(zT(610), z === 2, '#d9573f') });
+  // furnace + chimney + flame (fever)
+  let fur = box(30, 8, 4, 58, 34, 24, SFC.cream, toneI, 1.2) + cyl(44, 21, 24, 44, 4.5, SFC.steel, toneI, 1.1, 14);
+  const lit = z === 2 && (fx < 1 ? st.lastBurn > 0 : true), big = fx < 1 && st.lastZ === 2 ? 1 : .35, fl = lit && sfAmbient ? Math.sin(performance.now() / 90) * .6 : 0;
+  if (lit) { const h = (7 + 14 * big) + fl, fp = [[-3.5, 0], [-2, h * .5], [-.6, h * .8], [0, h], [.8, h * .7], [2.2, h * .45], [3.5, 0]].map(([u, v]) => [44 + u * .9, 21 + u * .3, 44.5 + v]);
+    fur += fill(pd(fp), '#f8aa06') + ink(pd(fp), 1.1) + fill(pd(fp.map(([x, y, zq]) => [x, y, zq * .55 + 44.5 * .45])), '#ffd57a'); }
+  if (k > 0) fur = `<g opacity="${f(1 - .75 * k)}">${fur}</g>` + `<g opacity="${f(k)}">${box(34, 12, 6, 54, 30, 9, matOf('#5a2418'), toneI, 1)}${[0, 1, 2, 3, 4].map(i => sfBall([38 + i * 4, 21, 11], 1.9, matOf(z === 2 ? '#f8aa06' : '#a39a82'), .7, toneI, 3, 8)).join('')}</g>`;
+  parts.push({ box: [[30, 8, 4], [58, 34, 60]], svg: fur });
+  // jars
+  const jar = (y, lv, col) => { const A = on(PZ(4), ellUV(45, y, 8, 8, 18)), B = on(PZ(30), ellUV(45, y, 8, 8, 18)), h = sp(hull([...A, ...B].map(p => P(...p))));
+    return { box: [[36, y - 9, 4], [54, y + 9, 33]], svg: (lv > .3 ? cyl(45, y, 4.8, 4.8 + lv, 7.2, col, toneI, .8, 18) : '') + `<path d="${h}" fill="#fff" opacity=".28"/>` + ink(h, 1.5) + cyl(45, y, 30, 32, 9, SFC.steel, toneI, 1, 18) }; };
+  parts.push(jar(100, sfClamp(st.pantry / 1500, 0, 1) * 24, SFC.cream), jar(122, sfClamp(st.divPool / 1500, 0, 1) * 24, SFC.amber));
+  // hopper
+  const hA = on(PZ(62), ellUV(14, 66, 4, 4, 16)), hB = on(PZ(78), ellUV(14, 66, 11, 11, 16));
+  parts.push({ box: [[3, 55, 56], [25, 77, 79]], svg: cyl(14, 66, 14, 58, 3.4, SFC.steel, toneI, 1, 12) + openShell(hA, hB, n => toneI(n, SFC.steel)) + ink(pd(hB), 1.1) });
+  // pipes with the lit one coloured
+  const pc = (on2, col) => (on2 ? col : SFC.steel.m);
+  parts.push(sfWire(pF, pc(fx < 1 && st.lastBurn > 0, '#e48a76'), 1.2), sfWire(pP, pc(fx < 1, '#f2e1b3'), 1.4), sfWire(pD, pc(fx < 1, '#ffd57a'), 1.4), sfWire(pR, pc(fx < 1 && st.lastReb > 0, '#8fc4d2'), 1.1));
+  // flow: fee coin, drops along the pipes, rebate drops
+  if (fx < .22) { const w = fx / .22, zc = 100 - w * 38; parts.push({ box: [[8, 60, zc - 1], [20, 72, zc + 3]], svg: sfToken(14, 66, zc, 5, SFC.amber, 20, 1.5) }); }
+  if (fx > .2 && fx < .8) { const w = (fx - .2) / .6, drop = (path, r, mat, s0) => { const q = pathAt(path, sfClamp(w * 1.3 - s0, 0, 1)); return { box: [[q[0] - 3, q[1] - 3, q[2] - 3], [q[0] + 3, q[1] + 3, q[2] + 3]], svg: sfBall(q, r, mat, .8, toneI, 3, 8) }; };
+    parts.push(drop(pP, 2, SFC.cream, 0), drop(pD, 2, SFC.amber, .05)); if (st.lastBurn > 0) parts.push(drop(pF, 1.3, SFC.tomato, 0)); }
+  if (fx > .6 && st.lastReb > 0) { const w = (fx - .6) / .4, q = pathAt(pR, sfClamp(w, 0, 1)); parts.push({ box: [[q[0] - 3, q[1] - 3, q[2] - 3], [q[0] + 3, q[1] + 3, q[2] + 3]], svg: sfBall(q, 1.6, SFC.frost, .8, toneI, 3, 8) }); }
+  const tags = k > .6 ? xrCallouts([
+    { at: [TX, TY, 18], text: 'DRAIN', on: false }, { at: [44, 21, 8], text: 'EMBERS', on: z === 2 && fx < 1 }, { at: [38, TY + 14.5, zT(610)], text: 'FEVER VALVE', on: z === 2 },
+    { at: [38, TY + 14.5, zT(600)], text: 'REBATE VALVE', on: z === 0 }, { at: [45, 100, 22], text: 'PANTRY', on: fx < 1 }, { at: [45, 122, 22], text: 'DIVIDEND', on: fx < 1 },
+    { at: [14, 66, 76], text: 'FEE IN', on: fx < .3 } ], [0, 100, 0, 140, 0, 110])
+    : tag([TX, TY, 112], -50, -14, 'CRUCIBLETEMP', false) + tag([44, 21, 44], -40, -8, 'BURN', z === 2 && fx < 1) + tag([45, 100, 31], 40, 8, 'PANTRY', fx < 1) + tag([45, 122, 31], 40, 8, 'DIVIDEND', fx < 1) + tag([14, 66, 78], -34, -10, 'FEE IN', fx < .3);
+  return floor + byDepth(parts) + tags;
+}
+
+ui = mountFigure({
+  fig: '03', turn: 'full', title: 'The CrucibleTemp thermometer', credit: false,
+  size: [100, 140, 130], center: [50, 70], palette: 'snacc',
+  state: fresh(),
+  scene: cScene,
+  stats: st => { const z = zoneOf(Math.round(st.Ts));
+    return [{ label: 'CrucibleTemp (mK)', value: String(Math.round(st.Ts)) }, { label: 'Zone', value: zNames[z] + (z === 2 ? ' · burn 3.5%' : z === 0 ? ' · rebate 2%' : ' · no burn'), small: true },
+      { label: 'Burned (u)', value: num(st.burned), small: true }, { label: 'Pantry / dividend (u)', value: `${num(st.pantry)} / ${num(st.divPool)}`, small: true }]; },
+  buttons: [
+    { label: 'Feed (fee 1000 u)', onClick: st => cFeed(st) },
+    { label: 'Fever 640', onClick: st => { cSet(st, 640); document.getElementById('sfr').value = 640; document.getElementById('sfv').textContent = '640'; } },
+    { label: 'Normal 605', onClick: st => { cSet(st, 605); document.getElementById('sfr').value = 605; document.getElementById('sfv').textContent = '605'; } },
+    { label: 'Hypothermia 570', onClick: st => { cSet(st, 570); document.getElementById('sfr').value = 570; document.getElementById('sfv').textContent = '570'; } },
+    { label: 'Homeostasis', choices: st => [{ label: 'Off', current: !st.shield, onClick: s => { s.shield = 0; say('Without the elixir the Fever burn is the full 3.5%.'); } }, { label: 'On: holds mt:elixir-homeostasis', current: !!st.shield, onClick: s => { s.shield = 1; say('With mt:elixir-homeostasis the Fever burn is halved (1.75%).'); } }] },
+  ],
+  params: (st, q) => { if (q.has('t')) st.T = st.Ts = +q.get('t'); if (q.has('shield')) st.shield = +q.get('shield'); },
+});
+sfRange('CrucibleTemp, mK (zoomed scale)', T0, T1, 1, ui.st.T, v => { ui.st.T = v; ui.st.mode = zoneOf(v); cLoop(); return `${v} · ${zNames[zoneOf(v)]}`; });
+xrMount(() => ui, () => '');
+sfPrimary('Feed');
+sfCenter(ui);
+</script></body></html>
