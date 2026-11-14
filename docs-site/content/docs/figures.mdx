@@ -1,0 +1,79 @@
+---
+title: Interactive figures
+description: Five small isometric machines you can turn, open up and play with. The Snacc organism, the incubator, the CrucibleTemp thermometer, the colony plate and the market escrow case.
+icon: elixir
+---
+
+import { Figure } from '@/components/figure';
+
+Each figure is a small machine that does what the contract does. Drag to turn it all the way round, press its buttons, switch on **See-through** to watch the labelled mechanism inside, and zoom with the − / + chip. They run in the browser only: nothing here talks to a chain.
+
+<Callout type="warn" title="Testnet only">
+`$SNACC` and NEAR on testnet have no monetary value. The numbers come from the contract code in `Snacc-near/contracts`; where the written design notes differ, the code wins. Amounts are shown at a small demo scale, with `u` = `10^15` yocto-`$SNACC`.
+</Callout>
+
+## 1. The Snacc organism
+
+{/* Checked against: contracts snacc/src state.rs (INITIAL_VITALITY 8500, INITIAL_ATP 50, METABOLIC_RECOVERY_VITALITY 500, VITALITY_CAP 10000,
+    MAX_ORGANEL_LEVEL 5, EN-119 organelle effects, role BMR 100/120/150) and lib.rs (feed_strain, calc_atp_minted, effective_vitality, solvency_tier,
+    allocate_atp, extract_spores, transmute_spores_to_enzyme, synthesize_elixir). */}
+
+<Figure
+  name="organism"
+  label="FIG 01 · the Snacc organism"
+  title="Interactive isometric cutaway of a Snacc: stomach, nine-molecule inventory, ATP, three organelles and a vitality gauge"
+  caption="A cutaway cell. Feed burns part of the stomach, mints ATP and adds 500 vitality. Hours drain vitality through the BMR; the gauge turns red under 2,000 (Tier 2, Distressed) and the cell goes insolvent at 0."
+/>
+
+## 2. The incubator
+
+{/* Checked against: contracts snacc/src lib.rs incubate_strain and state.rs (STAKE_TREASURY_BPS 2000, INITIAL_VITALITY, INITIAL_ATP, role BMR);
+    the stake presets 0.1, 0.25 and 0.5 NEAR come from the frontend's chain/actions.ts. */}
+
+<Figure
+  name="hatch"
+  label="FIG 02 · incubator"
+  title="Interactive isometric incubator: press Hatch to send testnet NEAR through a splitter, 80% to the new Snacc's stomach and 20% to the Pantry"
+  caption="Hatch: testnet NEAR goes in, 80% becomes the new Snacc's stomach and 20% goes to the Pantry, the rule-bound treasury. Pick a stake and a role first."
+/>
+
+## 3. The CrucibleTemp thermometer
+
+{/* Checked against: contracts snacc/src state.rs (FEVER_THRESHOLD_MK 610, HYPOTHERMIA_THRESHOLD_MK 600, FEVER_BURN_BPS 350, REBATE_BPS 200,
+    DIVIDEND_INFLOW_BPS 5000, MAX_EPOCH_TREASURY_DRAIN_BPS 500, VOLUME_DECAY_PER_SEC 50) and lib.rs (get_crucible_temp, zone_at, apply_thermostat_fee,
+    accrue_dividend_inflow). The scale is zoomed to 540..680 mK so the 10 mK Normal band can be seen. */}
+
+<Figure
+  name="crucible"
+  label="FIG 03 · CrucibleTemp"
+  title="Interactive isometric thermometer with the zones Hypothermia, Normal and Fever and the fee pipes they open"
+  caption="Move the slider, then feed a fee of 1000 u. Above 610 mK (Fever) 3.5% of the fee is burned; below 600 mK (Hypothermia) the Snacc gets a 2% rebate from the Pantry; in between nothing is burned. The scale is zoomed to 540 to 680 mK."
+/>
+
+## 4. The colony plate
+
+{/* Checked against: contracts snacc/src state.rs (MAX_COLONY_SIZE 5, MAX_GENERATION 8, MERGER_TAX_BPS 250, LIQUIDATOR_BOUNTY_BPS 1000,
+    SPLICE_BMR_REDUCTION_BPS 1500) and lib.rs (divide_strain, splice_strains, harvest_starving_strain, the EN-124 gate: total_divides at most total_mergers plus total_lyses). */}
+
+<Figure
+  name="colony"
+  label="FIG 04 · colony plate"
+  title="Interactive isometric Petri dish with up to five Snacc cells and a balance scale for the birth gate"
+  caption="Divide adds a generation-plus-one cell and splits the balance. The scale shows the gate: total_divides must not exceed total_mergers plus total_lyses. Splice merges two cells; Harvest lyses a starved one. Both earn gate budget."
+/>
+
+## 5. Market escrow
+
+{/* Checked against: contracts market/src/lib.rs and README (nft_on_transfer, buy, delist, 0% fee, ERR_LISTING_NOT_FOUND, ERR_SELLER_CANNOT_BUY,
+    ERR_INSUFFICIENT_DEPOSIT, MAX_PRICE_YOCTO). */}
+
+<Figure
+  name="market"
+  label="FIG 05 · market escrow"
+  title="Interactive isometric display case: list a Snacc through nft_transfer_call, buy it with testnet NEAR, or delist it"
+  caption="List sends the Snacc into the case through nft_transfer_call. Buy moves testnet NEAR to the seller and the Snacc to the buyer. Delist returns it. Testnet only."
+/>
+
+## About the engine
+
+The figures are built on the MIT-licensed [Colorfigures](https://april-zhu.com/colorfigures) engine by April Zhu, recoloured to the Snacc palette. Each one is a single self-contained page under `/figures/` that loads only when you scroll to it, respects the reduced-motion setting, and works with the keyboard and on a phone.

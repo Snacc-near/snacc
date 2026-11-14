@@ -1,0 +1,120 @@
+/* Interactive figures (OPS-130 phase 3): the frame around each iframe, plus two small decorative touches. */
+
+.sn-fig {
+  margin: 1.75rem 0;
+  max-width: 100%;
+}
+
+.sn-fig__body {
+  background: var(--sn-fig-paper);
+  background-image: radial-gradient(rgb(22 24 26 / 0.12) 1px, transparent 1px);
+  background-size: 18px 18px;
+  overflow: hidden;
+}
+
+.sn-fig__frame {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  aspect-ratio: 760 / 660;
+  border: 0;
+  background: transparent;
+  color-scheme: light;
+}
+
+.sn-fig__frame[style*='height'] {
+  aspect-ratio: auto;
+}
+
+.sn-fig .sn-caption a {
+  color: var(--sn-accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .sn-fig__frame {
+    aspect-ratio: 390 / 820;
+    min-height: 640px;
+  }
+}
+
+/* a slowly turning $SNACC coin (home page); still when the reader prefers reduced motion */
+.sn-spin {
+  display: inline-block;
+  transform-style: preserve-3d;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sn-spin {
+    animation: sn-coin-turn 16s linear infinite;
+  }
+
+  @keyframes sn-coin-turn {
+    to {
+      transform: rotateY(360deg);
+    }
+  }
+}
+
+/* ATP sparks: three tiny amber sparks pop around a step icon on hover or focus (subtle, no-preference only) */
+.sn-step__icon {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sn-step__icon::before,
+  .sn-step__icon::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    background: var(--sn-accent);
+    opacity: 0;
+    pointer-events: none;
+    transform: rotate(45deg) scale(0.4);
+  }
+
+  .sn-step__icon::before {
+    top: -4px;
+    right: -2px;
+  }
+
+  .sn-step__icon::after {
+    bottom: -2px;
+    left: -5px;
+    width: 4px;
+    height: 4px;
+  }
+
+  .sn-step:hover .sn-step__icon::before,
+  .sn-step:focus-within .sn-step__icon::before {
+    animation: sn-spark 0.9s ease-out 1;
+  }
+
+  .sn-step:hover .sn-step__icon::after,
+  .sn-step:focus-within .sn-step__icon::after {
+    animation: sn-spark 0.9s ease-out 0.15s 1;
+  }
+
+  @keyframes sn-spark {
+    0% {
+      opacity: 0;
+      transform: rotate(45deg) scale(0.3);
+    }
+    30% {
+      opacity: 1;
+      transform: rotate(45deg) scale(1.2) translate(2px, -2px);
+    }
+    100% {
+      opacity: 0;
+      transform: rotate(45deg) scale(0.2) translate(6px, -6px);
+    }
+  }
+}
+
+.sn-try__coin {
+  margin-left: 0.4rem;
+  vertical-align: -6px;
+}

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Icon, type IconName } from '@/components/icons';
 import { links } from '@/lib/shared';
+import { Coin } from '@/components/icons';
+import { Figure } from '@/components/figure';
 
 const steps: { icon: IconName; title: string; text: string }[] = [
   {
@@ -123,6 +125,22 @@ export default function HomePage() {
           </figure>
         </div>
         <div className="sn-ruler" aria-hidden="true" />
+      </section>
+
+      <section className="sn-section sn-try">
+        <header className="sn-section__head">
+          <h2 className="sn-label">Try it</h2>
+          <p className="sn-section__title">
+            Hatch a Snacc, right here.
+            <Coin size={40} className="sn-spin sn-try__coin" aria-hidden="true" />
+          </p>
+        </header>
+        <Figure
+          name="hatch"
+          label="FIG 02 · incubator"
+          title="Interactive isometric incubator: press Hatch to send testnet NEAR through a splitter, 80% to the new Snacc's stomach and 20% to the Pantry"
+          caption="Press Hatch. The stake splits 80% to the new Snacc's stomach and 20% to the Pantry. Testnet NEAR and $SNACC have no monetary value."
+        />
       </section>
 
       <section className="sn-section">
