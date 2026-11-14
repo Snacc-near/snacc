@@ -7,6 +7,8 @@ One `Homunculus Strain` (`NEP-171`/`NEP-177`) has a `$SNACC` stomach + a `NEP-24
 
 **[snacc-nu.vercel.app](https://snacc-nu.vercel.app)** is the landing page; the game is at **[snacc-nu.vercel.app/app](https://snacc-nu.vercel.app/app)**. NEAR **testnet only**; `$SNACC` testnet has no monetary value.
 
+**Docs:** [snacc-docs.vercel.app](https://snacc-docs.vercel.app) explains the organism, the economy, the contract methods, the SDK and the backend API, with diagrams on every page.
+
 What you can do in 60 seconds:
 
 1. **No wallet (demo mode, the default).** Open `/app`: it starts in `demo · simulated`. Tap a cell on the Colony Plate, watch the Cell Lab bio-reactor open, press a keycap. The numbers come from a local simulation and are labelled as such.
