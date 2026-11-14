@@ -1,11 +1,36 @@
-# Snacc — Polyrepo Umbrella
+# Snacc — a memecoin with a metabolism
 
-**Snacc ($SNACC): NFTs that eat a memecoin.** *Feed your Snacc or it gets snacked.*
-One `Homunculus Strain` (`NEP-171`/`NEP-177`) has a `$SNACC` stomach + a `NEP-245` inventory, a `BMR` metabolism, and internal `$ATP` energy (non-transferable) allocated to organel slots every epoch; it can merge (`splice_strains`), be taken over while distressed, and be harvested by anyone once fainted — a multi-cell colony (`divide_strain`, `adopt` vs `snack`) running under natural population fences (`MAX_COLONY_SIZE = 5`, `MAX_GENERATION = 8`, `births ≤ merges + lyses`). Behind it: the reactive central bank `CrucibleTemp` (Fever burns 3.5% of fees / Hypothermia subsidizes 2%), 3 autonomous NPCs, and AI verification in `NEAR AI Cloud TEE` (`env::ed25519_verify` on-chain). `$SNACC` volatility is a playable feature — not a return promise.
+*NFTs that eat a memecoin. Feed your Snacc or it gets snacked.* This is the umbrella repo of the Snacc polyrepo: judge README, docs, evidence and demo orchestration.
+
+We did not paint biology on a memecoin; the constants are the biology. Each Snacc is a `NEP-171`/`NEP-177` NFT that holds its own `$SNACC` balance and inventory, has to be fed to stay alive, and can be harvested by anyone once it has fainted. Each row ties a law of cell biology to a method or constant of `snacc-v001.testnet` and to a transaction you can open (full hashes, caveats and what is not proven: [Live evidence](#live-evidence-testnet)):
+
+| # | Law of the cell | In the contract (method / constant) | Proof (transaction) |
+| --- | --- | --- | --- |
+| L1 | Cytoplasm: a cell has its own contents | each NFT holds `$SNACC` and an inventory; hatching (`incubate_strain`) sends 20% of the stake to The Pantry (`STAKE_TREASURY_BPS 2000`) | [`5JCAmSL7…`](https://testnet.nearblocks.io/txns/5JCAmSL7pLTV8mShrNuEtG5WLPkCqKkYCZBf5WGtQ2wY) |
+| L2 | Nutrient uptake → ATP | `feed_strain` → event `atp_minted` | [`4hnA4pEU…`](https://testnet.nearblocks.io/txns/4hnA4pEUqghdtN8WycJJXCnSYQSEZ9F5DQamAuEub3GF) |
+| L3 | Basal metabolic rate | `bmr_per_hour` 100 / 120 / 150; Fed (> 20%) → Starving → Fainted, computed from block time, no keeper | sandbox clock: aging was compressed with `advance_sandbox_clock`, [`8YcqqVK3…`](https://testnet.nearblocks.io/txns/8YcqqVK35ubGVZLb1qj8ZLaqS6La7bAcGCafg3ohvuFA) |
+| L4 | Organelles | `allocate_atp`: mitochondria +10% ATP, nucleus +10% output, lysosome −10% BMR per level, level ≤ 5 ([`docs/organel-effects.md`](docs/organel-effects.md)) | the allocation call is accepted on chain: [`2LnyPshQ…`](https://testnet.nearblocks.io/txns/2LnyPshQH5hqqiY9rERTeVCRWT9LkpEFd2kB1sEvZB3E); the effect formulas are unit tests |
+| L5 | Quorum sensing: the colony senses its own activity | `CrucibleTemp = 1000 × V_decayed / supply`; Feeding Frenzy (`FEVER`) above 610 mK burns 350 bps of fees; Famine Relief (`HYPO`) below 600 mK pays 200 bps back, capped at 500 bps per epoch; no admin withdrawal | [`CfBR8pFN…`](https://testnet.nearblocks.io/txns/CfBR8pFNCGAjCAX21pSMQY9rdjQ2cVKonkzacFjmZpM8): `zone_changed` HYPO → FEVER at 916 mK. Sandbox: the heating fee was paid by the contract to itself. Reading on 2026-11-14: 960 mK |
+| L6 | Lysis + nutrient release | `harvest_starving_strain`: 10% to the caller, 90% to The Pantry (`LIQUIDATOR_BOUNTY_BPS 1000`), then `nutrient_burst_released` (360 bps) | [`AhEk4TNN…`](https://testnet.nearblocks.io/txns/AhEk4TNNeTj4orchvXSuPood8vAxTiQNWhZZwSdD9JH9); the caller was the lab's own account |
+| L7 | Paid phagocytosis / adoption | `hostile_takeover_splice` at book value + 15% (95% to the old owner, 5% to The Pantry); `adopt` at book value | takeover [`4o4qwoGZ…`](https://testnet.nearblocks.io/txns/4o4qwoGZtR7HE5E3VnjQZpXwDicpa9QVBzXHS1YP2v4f), signed by `x207-demo-buyer.testnet` (see [Disclosure](#disclosure-accounts-used-in-the-rehearsal)); adopt [`7w3tBNjL…`](https://testnet.nearblocks.io/txns/7w3tBNjLYFXKiUdmXtH1LhponGr6yhu1Q22xCFdLzo34) |
+| L8 | Endosymbiosis: one cell absorbs another | `splice_strains`: `role_mask` of both combined (up to `0b111`), +800 bps efficiency, BMR × 0.85, 2.5% merger tax | [`4ABtdBdj…`](https://testnet.nearblocks.io/txns/4ABtdBdjYkynQXXMsYD8ZKUwMtNAWX1wgEpREsX3i4nH). The BMR effect comes from contract code and GLADI-7 evidence, not re-derived from this run |
+| L9 | Mitosis, Hayflick limit, contact inhibition | `divide_strain`; `MAX_GENERATION 8`, `MAX_COLONY_SIZE 5`; a divide is allowed only while `total_divides ≤ total_mergers + total_lyses` | [`GVwhXD6k…`](https://testnet.nearblocks.io/txns/GVwhXD6kYyb9qDe2nDZMB6RUgsK5FqqTN51kVuYgnYWf) (parent 1 → child 6); the caps are unit tests |
+| L10 | Genotype → phenotype | NEAR AI Cloud (`z-ai/glm-5.3-flash`) proposes a genome change; `apply_tee_mutation_zero_trust` recomputes `env::sha256` and runs `env::ed25519_verify` before anything changes (±1500 bps cap); the contract draws the NFT image (on-chain SVG) | [`B8xdaukd…`](https://testnet.nearblocks.io/txns/B8xdaukdnf3Fh9ZkMNfXxXW7TrHVLZLeXQNdYyBtD2AG): signature verified on chain; enclave attestation: **not yet verified** |
+| L11 | Conservation of mass | `ft_total_supply` = minted − burned; `get_global_solvency` drift 0 | view calls and `npm run verify:thesis` (F-02) |
+
+*sandbox* = a real testnet transaction with a caveat (sandbox clock, self-funded fee, one epoch). A row without a hash is a view call or a unit test, not a live transaction.
+
+## Status, 2026-11-14
+
+NEAR **testnet only** (nothing is on mainnet) · tracks `memecoins` + `nfts` · contract `snacc-v001.testnet` · 51 rehearsal transactions and 22/22 rehearsal checks, with their [claim limits](#claim-limits-read-before-the-numbers) · `$SNACC` testnet has no monetary value · no testnet hash means no live claim. Full evidence, deployment status and what is **not yet** done: [Live evidence](#live-evidence-testnet).
+
+## How it fits together
+
+One `Homunculus Strain` (`NEP-171`/`NEP-177`) has a `$SNACC` stomach and an internal inventory (a `NEP-245`-style data model: there is no public `mt_*` interface), a `BMR` metabolism, and internal `$ATP` energy (non-transferable) allocated to organelle slots every epoch. It can merge (`splice_strains`), be taken over while distressed (`hostile_takeover_splice`), be adopted (`adopt`), and be harvested by anyone once it has fainted (`harvest_starving_strain`; "snack it" in the UI is that method, there is no method named `snack`). It can divide (`divide_strain`) into a multi-cell colony under population fences (`MAX_COLONY_SIZE = 5`, `MAX_GENERATION = 8`, births ≤ merges + lyses). Behind it: the reactive central bank `CrucibleTemp` (above 610 mK a Feeding Frenzy burns 3.5% of fees; below 600 mK Famine Relief pays 2% back from The Pantry, capped at 5% per epoch), three on-chain NPC merchants (deterministic price curves that quote and fill only when a player calls; they are not AI agents), and an AI diet plan from `NEAR AI Cloud` whose signature the contract verifies on chain (`env::ed25519_verify`; enclave attestation is not yet verified). `$SNACC` volatility is a playable feature, not a return promise.
 
 ## Play it
 
-**[snacc-nu.vercel.app](https://snacc-nu.vercel.app)** is the landing page; the game is at **[snacc-nu.vercel.app/app](https://snacc-nu.vercel.app/app)**. NEAR **testnet only**; `$SNACC` testnet has no monetary value.
+**[snacc-nu.vercel.app](https://snacc-nu.vercel.app)** is the landing page; the game is at **[snacc-nu.vercel.app/app](https://snacc-nu.vercel.app/app)**. NEAR **testnet only**; `$SNACC` testnet has no monetary value. The landing page reads live testnet data (read-only). The game opens in `demo · simulated` (numbers from local constants, not the chain) and has a `live testnet` toggle. No transaction has been signed from the UI wallet flow yet (see step 3 below).
 
 **Docs:** [snacc-docs.vercel.app](https://snacc-docs.vercel.app) explains the organism, the economy, the contract methods, the SDK and the backend API, with diagrams on every page.
 
@@ -92,8 +117,8 @@ What this does and does not show: it shows the market contract and the upgraded 
 | Repo | Module | Contents |
 | --- | --- | --- |
 | `Snacc` (this umbrella) | — | Judge README, docs, demo orchestration, submission assets |
-| `contracts` | `M1` + `M2` | The `snacc-v001.near` contract (Rust, `near-sdk 5.29.1`) + the testnet marketplace crate `market/` (`snacc-market.testnet`) |
-| `oracle-tee` | `M3` | Dual-Layer Redaction + the `z-ai/glm-5.3-flash` client + the ed25519 verifier |
+| `contracts` | `M1` + `M2` | The `snacc-v001.testnet` contract (Rust, `near-sdk 5.29.1`) + the testnet marketplace crate `market/` (`snacc-market.testnet`) |
+| `oracle-tee` | `M3` | Layer-1 local redaction + the `z-ai/glm-5.3-flash` client + the ed25519 verifier. Layer-2 cloud redaction does **not** run: `/v1/privacy/redact` answers 404 for `z-ai/glm-5.3-flash` (`docs/architecture.md`) |
 | `sdk` | `M4` | `lab-sdk`: Function Call Keys (`SessionKeyManager`, deposit-free methods only) + `SnaccClient` |
 | `backend` | `M5` | The `NEP-297` indexer + the `/api/crucible/*` API (read-only); `supabase/`: the profile migrations and eight Edge Functions, **deployed** (the starter pack and account deletion are not active yet, see [What's in the app](#whats-in-the-app)) |
 | `frontend` | `M6` | the landing page (scroll story through the incubator, live testnet gallery) and the cell-cultivation game (isometric Colony Plate arena + Cell Lab bio-reactor + tool windows, NEAR wallet login and signed game actions on testnet) — live at [snacc-nu.vercel.app](https://snacc-nu.vercel.app), game at [`/app`](https://snacc-nu.vercel.app/app) |
@@ -112,23 +137,87 @@ npm run verify:thesis    # falsifiers F-01..F-03
 
 Contract: clone the `contracts` repo, then `cargo test`. Evidence per claim: [`docs/evidence-pack.md`](docs/evidence-pack.md) · submission summary: [`HACKATHON.md`](HACKATHON.md).
 
-## Live evidence (testnet `snacc-v001.testnet`)
+## Live evidence (testnet)
 
-Point-in-time transactions from the committed gladi run — full hashes copied from [`evidence/gladi-manifest.json`](evidence/gladi-manifest.json) / [`docs/evidence-pack.md`](docs/evidence-pack.md), auto-checked in [`evidence/gladi-kpi.md`](evidence/gladi-kpi.md) (22 KPI rows). `$SNACC` testnet has no monetary value; no hash means no live claim.
+Point-in-time transactions from the committed **GLADI-8** rehearsal run (2026-11-09, contract `snacc-v001.testnet`). Full hashes are copied from [`evidence/gladi-manifest.json`](evidence/gladi-manifest.json) (51 hashed transactions) and auto-checked in [`evidence/gladi-kpi.md`](evidence/gladi-kpi.md): **22 PASS · 0 FAIL · 0 not run (22 KPI rows)**, with the claim limits below. All 51 were read back as `SuccessValue` from the archival RPC `https://archival-rpc.testnet.fastnear.com` on 2026-11-14 (`rpc.testnet.near.org` is deprecated, and non-archival nodes have dropped these transactions). On 2026-11-14 `npm run verify:thesis` came back with none of the three falsifiers (F-01..F-03) triggered, and `npm run demo:replay` replayed the 51 transactions in 14 beats, both without a key. `$SNACC` testnet has no monetary value; no hash means no live claim.
 
 | What | Transaction (NearBlocks testnet explorer) |
 | --- | --- |
-| Contract deploy + state migration | [6ky2mYRK…](https://testnet.nearblocks.io/txns/6ky2mYRKE15gv7FrThSsuuQBNfXpNCGPZT1iywybPfd) · [CYfbeyVw…](https://testnet.nearblocks.io/txns/CYfbeyVwWwvqGUBbt63W9wbfV3JTJM9seTbky3QgiPFf) |
-| G-07 hostile takeover (115% + nonce guard) | [FArXv6FT…](https://testnet.nearblocks.io/txns/FArXv6FTka21NjbCqo8gKaXXC6Gqzway7c7ppDgcbgFY) |
-| G-08 `adopt` (book value to the old owner) | [7uWckTNX…](https://testnet.nearblocks.io/txns/7uWckTNXSQx86f1Zwau6ehJXLZqCsjwkLBJocjsQNmRp) |
-| G-10 lysis + 10% bounty | [Ce5aRBZ7…](https://testnet.nearblocks.io/txns/Ce5aRBZ7ES45YUukTxL2kFTDdT2qpxrSsFAx4UzY5owW) |
-| G-11 dividend claim | [7J8X3ASJ…](https://testnet.nearblocks.io/txns/7J8X3ASJQFkUbUZFzWps5d5yjbybhgj5CY8Vat2TmSQY) |
-| TEE commit → apply (on-chain `env::ed25519_verify`) | [FnJmzrT4…](https://testnet.nearblocks.io/txns/FnJmzrT4Z5AqdWMnVhumBKxPEUg64Azg2EUzGGYNb2tT) → [6s7UFfjd…](https://testnet.nearblocks.io/txns/6s7UFfjd8XBPZ6b9FK4tzGhEo6kstAVeNMCpdwAT9FCN) |
-| Vault sub-account materialize | [G2zaGz4E…](https://testnet.nearblocks.io/txns/G2zaGz4E3gLqyofxZNqXENu4WrcYxUrqVeW8dCgpwJEN) |
+| GLADI-8 deploy + `migrate` (2026-11-09) | [BF3MfUnp…](https://testnet.nearblocks.io/txns/BF3MfUnpCtcqqXfBWnusDixvHHENBX2FrUHVhbEZQM7V) · [G4fLRtP7…](https://testnet.nearblocks.io/txns/G4fLRtP7RiPAWueNqHkgkao7NJKAmF3WtLks9jFwmF25) |
+| Code upgrade without `migrate` (2026-11-13) | [8ydFE4Xj…](https://testnet.nearblocks.io/txns/8ydFE4XjpwYbnrPUULjvtbqbqwU4PYSJ3rJyyVimu4TL) |
+| G-01 hatch (`incubate_strain`, `ft_mint` + `strain_created`) | [5JCAmSL7…](https://testnet.nearblocks.io/txns/5JCAmSL7pLTV8mShrNuEtG5WLPkCqKkYCZBf5WGtQ2wY) |
+| G-03 feed (`atp_minted`) | [4hnA4pEU…](https://testnet.nearblocks.io/txns/4hnA4pEUqghdtN8WycJJXCnSYQSEZ9F5DQamAuEub3GF) |
+| G-06 splice (`splice_strains`, 2.5% merger tax) | [4ABtdBdj…](https://testnet.nearblocks.io/txns/4ABtdBdjYkynQXXMsYD8ZKUwMtNAWX1wgEpREsX3i4nH) |
+| G-07 hostile takeover (115% + nonce guard); signer `x207-demo-buyer.testnet` | [4o4qwoGZ…](https://testnet.nearblocks.io/txns/4o4qwoGZtR7HE5E3VnjQZpXwDicpa9QVBzXHS1YP2v4f) |
+| G-08 `adopt` (book value to the old owner) | [7w3tBNjL…](https://testnet.nearblocks.io/txns/7w3tBNjLYFXKiUdmXtH1LhponGr6yhu1Q22xCFdLzo34) |
+| G-09 divide (`divide_strain`) | [GVwhXD6k…](https://testnet.nearblocks.io/txns/GVwhXD6kYyb9qDe2nDZMB6RUgsK5FqqTN51kVuYgnYWf) |
+| G-10 lysis + 10% bounty + Nutrient Burst | [AhEk4TNN…](https://testnet.nearblocks.io/txns/AhEk4TNNeTj4orchvXSuPood8vAxTiQNWhZZwSdD9JH9) |
+| G-11 / G-19 dividend: contribute (`synthesize_and_redeem_aether`) → close epoch (`advance_epoch`) → claim (one epoch, one contributor, sandbox clock) | [GfqatLA7…](https://testnet.nearblocks.io/txns/GfqatLA7TMR9mGBsA4Fo9Z76dHWTKABJhu4v6nVCmXzG) → [9F4KGd9b…](https://testnet.nearblocks.io/txns/9F4KGd9bZXwtQEpvJGQYcx2Vz7fsa9LbyyTySxYhfLjW) → [6hPrMTJu…](https://testnet.nearblocks.io/txns/6hPrMTJubZTcRATiGQxYZNxcL4WGXA3KVpgHqtvoBWFq) |
+| G-12 thermostat: `zone_changed` HYPO → FEVER at 916 mK (sandbox, self-funded heating fee) | [CfBR8pFN…](https://testnet.nearblocks.io/txns/CfBR8pFNCGAjCAX21pSMQY9rdjQ2cVKonkzacFjmZpM8) |
+| G-15 `nft_transfer` of strain 4 (balance and organelles move with it) | [HfhZG6sA…](https://testnet.nearblocks.io/txns/HfhZG6sAdqpKRSJsYRagD9mapCq7JrJvPthkUxFUZQQn) |
+| G-05 TEE: register signer → commit → apply (on-chain `env::ed25519_verify`, see [TEE](#tee-what-the-chain-and-the-vector-file-each-hold)) | [BovEAtK5…](https://testnet.nearblocks.io/txns/BovEAtK5gUZ6dthCX5Cn6qHnmZZ9bhtSTpGuYXRqYgfw) → [EnXBEETd…](https://testnet.nearblocks.io/txns/EnXBEETdyG4TcjmrzGgJxzczGcxMshXZuEBorG8yHwDC) → [B8xdaukd…](https://testnet.nearblocks.io/txns/B8xdaukdnf3Fh9ZkMNfXxXW7TrHVLZLeXQNdYyBtD2AG) |
+| G-21 vault sub-account materialize | [HUqc4HUx…](https://testnet.nearblocks.io/txns/HUqc4HUxwaBpqbNdcbiHa2WFEGfeu6HN2hjkyxcnEKK6) |
+
+Live reading on 2026-11-14: 11 Snaccs, total supply about 2.46 `$SNACC` (about 0.037 burned), `CrucibleTemp` 960 mK (Feeding Frenzy). The scale is tiny: this is a rehearsal colony, not a market. The read-only backend serves it at `/api/crucible/macro`.
+
+### Claim limits (read before the numbers)
+
+"22 of 22" means the mechanics that are implemented were verified on chain. It is **not** a product-completeness checklist.
+
+- **Time was compressed.** Aging in G-07, G-08 and G-10 and the 24 h epoch gate (G-19 and G-11) ran with `advance_sandbox_clock` (owner-only, `.testnet` accounts only, at most 720 h per call). Nobody waited real time. The mechanics are the same, the speed is not representative, and mainnet would have no such clock.
+- **Dividends:** one epoch, one contributor. Multi-epoch behaviour and claim expiry are unit tests only.
+- **Thermostat:** the Frenzy in `CfBR8pFN…` was set up with a heating fee that the contract account paid to itself (a self-funded rehearsal). The burn was 175 bps, not 350: a held `mt:elixir-homeostasis` shield halves it.
+- **Failed calls** show the error text `Unreachable` on chain.
+- **Players:** no external player has played. The lab's own account owns all 11 strains except #4 (see [Disclosure](#disclosure-accounts-used-in-the-rehearsal)).
+- **Not covered by these checks:** a complete SDK, the security audit, the NEAR AI integrations (Inference SDK, privacy/classify, TDX quote verification), the docs, long-run economic results, a full end-to-end run, the frontend and the demo video. Product completeness is tracked in the backlog, not in this table.
+
+### Deployment status
+
+Read from the RPC on 2026-11-14: `snacc-v001.testnet` has `code_hash` **`4m2z2PiZTa1mSG5A8cnr5b9fxDWY4n3HiPGzcP7EtwiH`** (wasm 426,017 B) since the code upgrade of 2026-11-13 (`8ydFE4Xj…`, deployed without `migrate`, so the rehearsal state stayed).
+
+| Step | Date | Wasm | `code_hash` |
+| --- | --- | --- | --- |
+| GLADI-7 deploy (its state was later reset by `migrate`) | 2026-11-08 | 406,495 B | superseded |
+| GLADI-8 redeploy + `migrate`: the 51 rehearsal transactions belong to this build | 2026-11-09 | 517,185 B | `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr` |
+| Code upgrade (adds `nft_transfer_call` for the market): **current** | 2026-11-13 | 426,017 B | `4m2z2PiZTa1mSG5A8cnr5b9fxDWY4n3HiPGzcP7EtwiH` |
+
+- [`evidence/snacc.wasm`](evidence/snacc.wasm) is the **GLADI-8** build (`DMRgsiLJ…`). It is **not** the code deployed now.
+- For the GLADI-8 build, `evidence/snacc.wasm` matched the on-chain `code_hash` when read on 2026-11-09, but the public `contracts` source is a functional match only (`docs/evidence-pack.md`), not byte-identical. A Docker reproducible build was **not** run (`cargo near build non-reproducible-wasm`), so there is no byte-for-byte source verification. This README does not claim that the current `contracts` source reproduces the 2026-11-13 build.
+- `npm run verify:thesis` does not compare code hashes.
+- Market contract `snacc-market.testnet` (195,320 B): `code_hash` `Ff2fbYVTK1bcqSi7UhdTQRUQff8qyKFMgVdAaDFypgHQ`.
+
+### TEE: what the chain and the vector file each hold
+
+- **On chain:** register [`BovEAtK5…`](https://testnet.nearblocks.io/txns/BovEAtK5gUZ6dthCX5Cn6qHnmZZ9bhtSTpGuYXRqYgfw), commit [`EnXBEETd…`](https://testnet.nearblocks.io/txns/EnXBEETdyG4TcjmrzGgJxzczGcxMshXZuEBorG8yHwDC), apply [`B8xdaukd…`](https://testnet.nearblocks.io/txns/B8xdaukdnf3Fh9ZkMNfXxXW7TrHVLZLeXQNdYyBtD2AG) (`genome_mutated`: +450 bps efficiency, +200 vitality, model `z-ai/glm-5.3-flash`). The apply arguments carry the NEAR AI Cloud chat id **`14a1b709e99641f7afcaf0dfbe2dd0bd`**. The field `tee_chat_id` in the manifest is this same id.
+- **In the repo:** [`evidence/tee-vector-live.json`](evidence/tee-vector-live.json), which `npm run verify:thesis` (F-03) and `npm run demo:replay` use, is a **different** NEAR AI Cloud response, chat id **`d1979ce2662d4da6ae7a931d1158656d`**. Both responses pass the `ed25519` and `sha256` check offline, but the on-chain arguments and the vector file are **not byte-equal**.
+- **What this proves:** the contract checked a valid signature under the registered public key (`5a0210f2442c79355784f9de021985429561da5bacc3a4424b01ac52b7e0caff`) and recomputed the request hash before it changed the Snacc, within the ±1500 bps cap. **What it does not prove:** that the key lives in a genuine enclave. Attestation is **not yet verified**; the `dcap-qvl` quote check is skipped when the tool is not installed.
+- **Not a private result:** the apply call carries the full response body in its public arguments; only the request is hashed. Layer-2 cloud redaction does not run (`/v1/privacy/redact` answers 404 for `z-ai/glm-5.3-flash`), so only the local Layer-1 redaction applies.
+
+### Disclosure: accounts used in the rehearsal
+
+`x207-demo-buyer.testnet` is a test account from the sibling project x207. It was reused here as the second NEAR account, the buyer and raider. It signed the hostile takeover [`4o4qwoGZ…`](https://testnet.nearblocks.io/txns/4o4qwoGZtR7HE5E3VnjQZpXwDicpa9QVBzXHS1YP2v4f), the hatch [`4jEVMFmu…`](https://testnet.nearblocks.io/txns/4jEVMFmusrwwWxN2i9kh5wuuemTbxS2L6VUyBxy6LbGk) of strain 9 (the manifest labels it the target for `adopt` and lysis), a Keypom starter-pack drop spike [`39BNhC4A…`](https://testnet.nearblocks.io/txns/39BNhC4AXERb8K5pds4k4pmW312WXexSm2TwA1Z2L3ED), and four deliberately failing non-owner calls ([`D7QUnBn2…`](https://testnet.nearblocks.io/txns/D7QUnBn2jRBgpL3WufyToyEw3XNzRtoD7jj1M52mGvNZ), [`96WagxUJ…`](https://testnet.nearblocks.io/txns/96WagxUJW3kKi1z2YMYoAwMmbobSRZ4n6Z5CLagkxAhU), [`AKESsSNP…`](https://testnet.nearblocks.io/txns/AKESsSNPyq1zuufgcPJks1bCCQzwiJ2xTm9nYWkQEkHd), [`EyTedFNi…`](https://testnet.nearblocks.io/txns/EyTedFNiP1QptrUwv34v7P2P6jEfGc5M66D7UsDEhk6d)). It also received strain 4 through `nft_transfer`. Everything else was signed by the lab's own account `snacc-v001.testnet`, including `adopt` (`7w3tBNjL…`) and the lysis `AhEk4TNN…`: the caller who received the 10% bounty was the lab itself. The rule does not care who calls, but this run does not show an outside "finder". All 11 strains are owned by `snacc-v001.testnet` except #4. The manifest field `counterparty` names `x207-demo-buyer.testnet`.
+
+### On-chain SVG: size and storage cost
+
+The contract draws the NFT image (NEP-177 `nft_token` returns `data:image/svg+xml;base64,…`, no SVG is stored). Live images are **448–482 B**, a plain monospace telemetry card with raw numbers, not artwork; the budget is **1,734 B**. The figure `1,734 B × 10^19 yocto/byte = 0.01734 NEAR` is the cost *at the budget*; at 482 B it is about 0.0048 NEAR. `npm run verify:thesis` F-01 reads the live mainnet storage price, and its "84.42% cheaper" is computed against an *assumed* static-NFT baseline of 11,129 B. That percentage is a baseline assumption, not a measurement.
+
+### Test counts
+
+As recorded by the owning sessions on 2026-11-14 and **not re-run for this README**: `contracts` 411 (`snacc`) + 38 (`market`); `frontend` 709 tests in 46 files; `sdk` 100 passed + 1 skipped; `oracle-tee` 28; `backend` 169. Run them yourself with `cargo test` in `contracts` and `npm test` in the other repos. Unit tests check code paths; they are not on-chain evidence. Older counts you may still see elsewhere (256, 288, 293) are superseded.
+
+### Not yet
+
+- Mainnet, a DEX listing and real liquidity. Nothing is on mainnet.
+- Enclave attestation for the TEE signer (see above).
+- Natural-time operation, multi-epoch dividends, any external player.
+- A gameplay transaction signed with a function-call key (the key was added and removed in a spike; no one-tap transaction is recorded), and any transaction signed from the UI wallet flow.
+- Autonomous NPCs: the three NPC merchants only quote and fill when a player calls them.
+- The Keypom starter pack in the demo (the drop transaction exists, the demo does not use it), Chain Signatures, a public NEP-245 `mt_*` interface, NEP-178 approvals.
+- Economic claims such as "the central bank prevents death spirals": `docs/econ-*.md` are simulations; the live proof is one micro-scale firing.
 
 ## Source of design truth
 
-The `snacc-vault/` vault — start from [[Snacc Hub]]. Numbers follow the **Kamus Angka Resmi** ([[Snacc - Model Data]]). Backlog & execution order: [[Snacc - Backlog Master]] (±300 items).
+The design notes live in a **private** `snacc-vault/` (the team's Obsidian vault, not part of this repo, so judges cannot open it). Numbers follow its official number dictionary ("Kamus Angka Resmi", note `Snacc - Model Data`), and product completeness is tracked in its backlog master (about 300 items). What a judge can check without the vault is in `evidence/`, `docs/` and the transactions linked above.
 
 **Partner onboarding (standalone, no links):** [`docs/partner-onboarding.md`](docs/partner-onboarding.md) — an end-to-end Snacc summary for outside parties.
 
