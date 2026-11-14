@@ -1,0 +1,77 @@
+---
+title: Security and honesty
+description: The honesty rules of Snacc, the testnet-only scope, what the contract guards, who can change what, and what has not been verified or audited.
+icon: Lock
+---
+
+Snacc is a hackathon project on NEAR **testnet**. This page says what the project promises, what the code enforces, and where the limits are. When a claim has no transaction hash, it is not a claim.
+
+## The honesty rules
+
+1. **No hash, no live claim.** A feature is called live only when the status table in the [README of the umbrella repo](https://github.com/Snacc-near/Snacc#whats-in-the-app) says so. A claim about the chain needs a transaction hash from the public repos. See [Evidence](/docs/evidence).
+2. **Live is not the same as tested.** "Live" means present in the production build. It does not mean "tried on chain with a real wallet". The README keeps a separate column for that.
+3. **Testnet only, no value.** `$SNACC`, `$ATP` and testnet NEAR have no monetary value. Nothing is deployed on mainnet.
+4. **Volatility is a game feature, not a promise.** The central bank pushes the colony's activity around by design (see [CrucibleTemp](/docs/crucible-temp)).
+5. **Profit means work plus redistribution.** The Industrial Dividend Pool redistributes fees that other players' actions produced. It guarantees nothing (see [The Great Feast and the Industrial Dividend Pool](/docs/feast-dividend)).
+6. **Plans are marked as plans.** Anything not built is called a plan (see [Roadmap](/docs/roadmap)).
+7. **A passing test is not a finished product.** Evidence shows that the mechanics it tests work. It does not show what it does not test.
+
+## Who can change what
+
+{/* Diagram checked against: contracts snacc/src/lib.rs (register_attested_signer, advance_sandbox_clock, migrate, assert_strain_owner, treasury with no withdraw method),
+    market/README.md (owner can only pause new listings); backend README (read-only, never signs); one-tap code (key limits); vault note "Snacc - POV Skeptis dan Risiko" (older). */}
+
+```pele
+flowchart TB
+  PL["Players"] -->|"act on their own Snaccs,<br/>pay fees, harvest starved Snaccs"| C{{"snacc-v001.testnet"}}
+  CO["Contract owner<br/>(the deployer account)"] -->|"register or remove enclave keys,<br/>advance the sandbox clock on testnet"| C
+  CO -.->|"cannot withdraw from the Pantry,<br/>cannot move a player's Snacc"| C
+  EN["Enclave key"] -->|"signed answers, only if the key is registered<br/>and the answer is inside the limits"| C
+  BE["Indexer backend"] -.->|"reads only, never signs"| C
+  SB["Supabase"] -.->|"profile data only,<br/>no effect on game state"| C
+  MK["snacc-market.testnet"] -->|"holds listed Snaccs in escrow"| C
+```
+
+- **Players** can change only what the rules let them: their own Snaccs, and weak Snaccs of others through `adopt`, `hostile_takeover_splice` and `harvest_starving_strain`.
+- **The contract owner** is set at deploy time. The owner can register and remove TEE signer keys, and on a `.testnet` account can move the sandbox clock forward by up to 720 hours per call. There is no method for the owner to withdraw from the Pantry or to take a player's Snacc. `migrate` can only be called by the contract account itself, and it starts a new data generation, so old data becomes unreadable.
+- **The enclave key** can only change a Snacc inside fixed limits: efficiency within plus or minus 15%, vitality up by at most 500.
+- **The market owner** can only pause new listings. Nobody can withdraw a listed token.
+
+## What the contract enforces
+
+These rules are in the contract code, and unit tests cover them:
+
+- **Supply is accounted for.** `$SNACC` is created only when real NEAR is staked at hatching. Every burn is recorded in `total_snacc_burned`. The view `get_global_solvency` adds up every ledger and reports a `drift`. The books balance when `drift` is 0, and the view said `drift: 0` on 2026-11-09 (see [Evidence](/docs/evidence)).
+- **No admin withdrawal from the Pantry.** Rebates are capped at 5% of the Pantry per epoch.
+- **Ownership checks on every action.** Only the owner acts on a Snacc, with the documented exceptions.
+- **TEE answers are checked on chain.** The enclave signature, the request commitment, the response hash, the replay of a `chat_id`, the size and the numeric limits are all checked inside the contract.
+- **Anti front-running on sales.** `adopt` and `hostile_takeover_splice` need the `state_nonce` you saw, so an owner cannot empty a Snacc just before it is taken.
+- **One role bit at hatching.** Several roles arise only from a merger.
+- **Conservation of NPC trades.** What an NPC reserve gains is exactly what the buying stomach loses.
+
+## Not verified and not done
+
+- **The app's wallet flow.** The payloads for hatch, feed, allocate `$ATP` and divide were accepted by the contract, but those four transactions were signed from the command line. The UI wallet flow itself has **not** been exercised on chain. One-tap play and the Market window have not been tried with a real wallet either.
+- **Real-time operation.** The epoch close and the starvation windows in the evidence were reached with the owner-only sandbox clock. The rules are real, but nobody waited in real time. The sandbox clock exists only on `.testnet` accounts.
+- **More than one epoch of dividends.** Only epoch 0 was closed and claimed, with one contributor. Claim expiry and several contributors are covered by unit tests only.
+- **TEE attestation.** A valid signature is checked on chain, but whether the signing key lives in a genuine enclave is not verified. Checking the hardware quote on chain is a plan.
+- **Reproducible build.** The deployed wasm was built with a non-reproducible build, and the public source is functionally equal to it, not byte-identical.
+- **External audit.** There has been no external audit of the contracts, and the market contract is unaudited with unit tests only.
+- **Push delivery and sign-in with a real wallet** for the profile features are not verified (see [Profiles, quests and seasons](/docs/profiles)).
+- **Mainnet.** Nothing is deployed there. All evidence is testnet evidence.
+
+## Known design limits
+
+These are facts of the current code, listed so nobody has to find them by surprise:
+
+- **`initial_spores` is free and uncapped.** `incubate_strain` mints the number of `mt:spore-ignis` you ask for, with no cap and no price. The app sends 10.
+- **The catalyst fee is chosen by the caller.** It is attached NEAR that must equal `snacc_catalyst_fee`, and the contract sets no minimum. The fee is the lever that heats the central bank, so with fee 0 a stage action costs only `$ATP`.
+- **The temperature decay is tiny at yocto scale.** See [CrucibleTemp](/docs/crucible-temp).
+- **A pending TEE commitment cannot be cancelled,** and a `phenotype_trait` is only length-checked.
+- **NPCs never restock** and never pay out their reserve.
+- **A starving Snacc can be merged away by its owner** with `splice_strains` before anyone harvests it, because only the dominant Snacc must be alive and not starving.
+- **The SDK sends `u64` ids as strings,** which the contract refuses (see [SDK](/docs/sdk)).
+
+## Secrets
+
+Keys never go into the repos or this site. The NEAR AI key is read only from the server environment, and the faucet key lives only in Supabase secrets. The Supabase project URL and its publishable key are public by design, and row-level security guards the data. The one-tap key is a function-call key limited to eight methods and 0.25 NEAR of gas (see [One-tap play](/docs/one-tap)).

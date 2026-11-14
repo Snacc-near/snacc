@@ -1,0 +1,99 @@
+---
+title: FAQ
+description: Short answers about Snacc. Testnet and money, wallets, feeding, why an action failed, what the AI does, one-tap play and where the code is.
+icon: CircleQuestionMark
+---
+
+Short answers, with a link to the page that has the detail. NEAR **testnet only**.
+
+## Why did my action fail?
+
+Contract errors show up in the app as plain English. This tree maps the most common ones to their cause, using the contract's `ERR_*` names (see the [Contract reference](/docs/contract-reference) for all of them).
+
+{/* Diagram checked against: contracts snacc/src/lib.rs (the ERR_* codes raised by feed_strain, divide_strain, adopt, hostile_takeover_splice, harvest_starving_strain, stage actions, incubate_strain),
+    snacc/src/state.rs constants; frontend txResult.ts maps the codes to messages. */}
+
+```pele
+flowchart TB
+  F(["An action failed"]) --> Q1{"Which error?"}
+  Q1 -->|"ERR_STRAIN_STARVING"| A1["Effective vitality is 0.<br/>Feeding is no longer possible,<br/>anyone can harvest it"]
+  Q1 -->|"ERR_NOT_ENOUGH_ATP"| A2["The Snacc has too little ATP.<br/>Feeding mints ATP"]
+  Q1 -->|"ERR_COLONY_FULL<br/>ERR_MAX_GENERATION"| A3["Fence: 5 living Snaccs,<br/>generation 8 at most"]
+  Q1 -->|"ERR_BIRTHS_EXCEEDED"| A4["Divide gate: too many divisions<br/>compared with mergers and harvests"]
+  Q1 -->|"ERR_NOT_DISTRESSED"| A5["Adopt and takeover need<br/>effective vitality 1 to 2000"]
+  Q1 -->|"ERR_STATE_NONCE_CHANGED_SELLER_DRAIN_BLOCKED"| A6["The target changed since you looked.<br/>Read it again and retry"]
+  Q1 -->|"ERR_STAKE_DEPOSIT_MISMATCH"| A7["The attached NEAR is not equal<br/>to the stake or the fee"]
+  Q1 -->|"ERR_ROLE_NOT_ALLOWED"| A8["That stage needs another role.<br/>Extractor, Fermenter or Synthesizer"]
+  Q1 -->|"ERR_ALREADY_ALLOCATED"| A9["ATP can be allocated<br/>once per epoch"]
+```
+
+## The basics
+
+**What is Snacc?**
+NFTs that eat a memecoin. Each Snacc is a living NFT with its own stomach of `$SNACC`, an inventory of molecules, `$ATP` energy and a job in a small supply chain. Feed it or it gets weak and others can take it over. See the [Introduction](/docs) and [The Snacc organism](/docs/organism).
+
+**Is this real money, or a way to make money?**
+No. Everything runs on NEAR **testnet**. `$SNACC`, `$ATP` and testnet NEAR have no monetary value. The price swings come from the game's central bank and are a feature of the game, not a promise. The dividend pool redistributes other players' fees and guarantees nothing. See [Security and honesty](/docs/security).
+
+**Is it live on mainnet?**
+No. Nothing is deployed on mainnet. The [Roadmap](/docs/roadmap) lists plans, and plans are not promises.
+
+**Where is the code?**
+In the public [`Snacc-near`](https://github.com/Snacc-near) organisation: `contracts`, `sdk`, `backend`, `frontend`, `oracle-tee`, `scripts`, and the umbrella `Snacc` repo with the README, the evidence and this docs site. See [Architecture](/docs/architecture).
+
+## Playing
+
+**Do I need a wallet?**
+Not to look around. The demo mode needs nothing, and the live read mode reads `snacc-v001.testnet` without a wallet. To hatch, feed and divide you need a NEAR testnet wallet (or an email login) with testnet NEAR from the [faucet](https://docs.near.org/getting-started/faucet). See [Play in 60 seconds](/docs/play).
+
+**Is there a free starter pack?**
+Not yet. The `starter-pack` function is deployed but not enabled, because its faucet secret is not set. Use the faucet linked above.
+
+**Can I hatch without NEAR?**
+Hatching attaches NEAR (the stake), so it always opens the wallet. Hatching without any NEAR, through a relayer or meta-transactions, is a plan for after the hackathon and is not built. A hatch can also be paid from `$SNACC` in your account balance, if you have some.
+
+**What happens to my hatching stake?**
+80% becomes the Snacc's stomach and 20% goes to the Pantry, the rule-bound treasury.
+
+**How often should I feed?**
+About once a day. With no feeding and no lysosome, an Extractor becomes Distressed after about 65 hours and starving after about 85, a Fermenter after 55 and 71, and a Synthesizer after 44 and 57. Feeding and every stage action add 500 vitality and restart the clock. See [The Snacc organism](/docs/organism).
+
+**What if I forget?**
+A Distressed Snacc (effective vitality 1 to 2000) can be adopted or taken over by another player. A starving one (0) can be harvested by anyone: 10% of its stomach goes to the harvester and 90% to the Pantry. A harvested Snacc is dead and cannot be revived or transferred. See [Colony actions](/docs/colony).
+
+**Why did my divide fail?**
+Divide has three fences: at most 5 living Snaccs (`ERR_COLONY_FULL`), generation 8 at most (`ERR_MAX_GENERATION`), and a global gate that lets divisions run only on a budget created by mergers and harvests (`ERR_BIRTHS_EXCEEDED`). It also costs 3 `$ATP`.
+
+**Is `$ATP` a token?**
+No. It is the Snacc's internal energy, kept in the field `atp_balance`. It has no supply and cannot be transferred.
+
+**Can `$SNACC` be minted?**
+Only from a real NEAR stake at hatching. Everything else moves or burns existing `$SNACC`.
+
+**What are the "mK" numbers?**
+`CrucibleTemp`, the central bank's reading, in millikelvin. Above 610 a slice of each fee is burned, below 600 the Pantry pays a rebate. See [CrucibleTemp](/docs/crucible-temp).
+
+**Why does the app show a dash?**
+Where the chain gives no value, the app shows `—`. It never invents a number.
+
+## The AI and the NPCs
+
+**Does an AI decide who wins?**
+No. A model in the NEAR AI Cloud TEE scores one formula, and the contract applies the result only inside fixed limits (plus or minus 15% efficiency, at most 500 vitality) and only if the enclave's signature checks out on chain. The NPC merchants are fixed formulas, not AI. See [TEE verification](/docs/tee) and [The NPC merchants](/docs/npcs).
+
+**Is my formula private?**
+Identities (accounts, emails, keys) are removed, and raw dosages are hidden behind a hash and normalized ratios before the enclave sees the text. The formula text is not written on chain, only a hash of the request is. The enclave's answer (the numbers and the trait) is public in the apply transaction. See [TEE verification](/docs/tee).
+
+## Trust and safety
+
+**Is one-tap play safe?**
+It adds one function-call key that can only call `snacc-v001.testnet`, only eight deposit-free methods, with a 0.25 NEAR gas allowance. It cannot attach NEAR or touch your other funds. It has **not** been verified with a real wallet yet. See [One-tap play](/docs/one-tap).
+
+**What is the sandbox clock?**
+An owner-only function that moves contract time forward on `.testnet` accounts, so Distressed and starving windows and epoch closes can be shown without waiting. The evidence says where it was used. It does not exist on a mainnet account.
+
+**Which parts are verified on chain?**
+The contract's rules, through the transactions on the [Evidence](/docs/evidence) page. Not verified: the app's wallet flow, one-tap play, the Market window, push delivery and more than one dividend epoch.
+
+**Where do I report a problem?**
+Use GitHub, in the repo of the [`Snacc-near`](https://github.com/Snacc-near) organisation that holds the affected code.
