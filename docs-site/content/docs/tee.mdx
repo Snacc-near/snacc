@@ -1,0 +1,136 @@
+---
+title: TEE verification
+description: How a secret genome formula is evaluated by a model in the NEAR AI Cloud TEE, how identities are redacted, the order evaluate, commit, apply, and how the contract checks the enclave signature with env::ed25519_verify.
+icon: ShieldCheck
+---
+
+The **secret genome** is the one place where something outside the chain decides a number. A player writes a formula, a model running inside the **NEAR AI Cloud TEE** (a trusted execution environment) scores it, and the contract applies the result to the Snacc only if a signature proves the answer came from a registered enclave key. The contract does not trust the server. It checks the signature itself. NEAR **testnet only**.
+
+## What it changes
+
+The model returns three things, and the contract clamps each one:
+
+| Field | Allowed range | Effect on the Snacc |
+| --- | --- | --- |
+| `efficiency_shift_bps` | -1500 to 1500 (`MAX_SHIFT_BPS`, plus or minus 15%) | added to `efficiency_bps` (never below 0) |
+| `vitality_bonus` | 0 to 500 | added to `vitality`, at most 10000 |
+| `phenotype_trait` | text of at most 32 characters | stored as the Snacc's `phenotype_trait` |
+
+A trait unlocks the aether elixir: `synthesize_elixir` for `mt:elixir-aether` fails with `ERR_REQUIRES_TEE_ATTESTATION` until the Snacc has a trait. `conjugate_traits` can copy a trait to another Snacc of the same owner for 2 `$ATP`, and `divide_strain` passes it on to the child.
+
+## The order: evaluate, commit, apply
+
+{/* Diagram checked against: vault notes "Snacc - Fitur F3 Eksekusi Genom Rahasia di NEAR AI Cloud TEE", "Snacc - Sequence F3 Eksekusi Genom Rahasia di NEAR AI Cloud TEE",
+    "Snacc - Spec API Backend dan TEE" (the vault puts the commit before the enclave call; the code commits after, because the request hash carries a server salt);
+    code: backend README (POST /api/tee/evaluate-genome, follow-up steps), backend src/evaluate.ts, src/oracle/pipeline.ts, src/oracle/enclave-client.ts,
+    contracts snacc/src/lib.rs commit_genome_experiment, apply_tee_mutation_zero_trust. */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor O as Strain owner
+  participant A as App
+  participant W as Wallet
+  participant B as Backend
+  participant T as NEAR AI Cloud TEE
+  participant C as Contract
+  O->>A: write a formula
+  A->>W: sign a NEP-413 message (evaluate-genome, strain_id, time)
+  W-->>A: signature
+  A->>B: POST /api/tee/evaluate-genome
+  B->>B: check the key, the owner, the time and the nonce
+  B->>B: Layer 1 redaction: hide identities, commit to the formula
+  B->>T: chat completion, z-ai/glm-5.3-flash, temperature 0
+  T-->>B: raw response and chat_id
+  B->>T: signature for the chat_id
+  T-->>B: ed25519 signature
+  B-->>A: raw body, signature, signer key, request hash
+  Note over A,C: 1. evaluate is done. Now the owner commits, then applies.
+  A->>W: commit_genome_experiment(strain_id, req_sha256_hex)
+  W->>C: signed transaction, genome_committed
+  A->>W: apply_tee_mutation_zero_trust(...)
+  W->>C: signed transaction, checked on chain, genome_mutated
+```
+
+1. **Evaluate.** The app asks the backend to run the formula. The strain owner proves identity with a signed NEP-413 message (the recipient is `snacc-backend`). The backend checks that the key is a full-access key of the Snacc's owner, that the message is under 5 minutes old and that the nonce was never used. It allows 3 calls per hour per Snacc and 50 per day in total.
+2. **Commit.** `commit_genome_experiment(strain_id, req_sha256_hex)` stores the hash of the exact request on the Snacc as `pending_commitment` (event `genome_committed`). The hash is only known after step 1, because the backend adds a random salt, so the commit comes right after the evaluation. A Snacc can hold one commitment at a time (`ERR_COMMITMENT_ALREADY_PENDING`).
+3. **Apply.** `apply_tee_mutation_zero_trust(strain_id, req_sha256_hex, raw_response_body, signature_hex, tee_pubkey_hex)` sends the raw answer and its signature to the contract, which checks everything and changes the Snacc (event `genome_mutated`).
+
+<Callout type="info" title="Commit after evaluate, not before">
+The original design committed to the request before calling the enclave. On this server-salted path that is not possible, so the commit binds the hash after it was computed. The commit still stops the owner from applying a response that was not computed for that exact request.
+</Callout>
+
+## Redaction: what the enclave sees
+
+The formula and the catalyst text are cleaned before they leave the backend. The code lives in the `oracle-tee` repo, and the backend carries a versioned copy.
+
+{/* Diagram checked against: vault notes "Snacc - Spec API Backend dan TEE" (Dual-Layer Redaction), "Snacc - DFD Level 2 F3 Eksekusi Genom Rahasia di NEAR AI Cloud TEE";
+    code: oracle-tee README and src/redact.ts (identity patterns, sha256 commitment with a 16 byte salt), src/pipeline.ts (classify and cloud redact fallbacks,
+    the request body), src/enclave-client.ts. */}
+
+```pele
+flowchart LR
+  IN["Formula and catalyst text<br/>from the owner"] --> L1["Layer 1, local:<br/>mask NEAR accounts, emails, ed25519 keys<br/>replace raw doses by sha256(formula + salt)<br/>and normalized ratios"]
+  L1 --> CL{"Layer 1.5:<br/>privacy classify"}
+  CL -->|"available"| L2["Layer 2, cloud redact<br/>(optional)"]
+  CL -->|"404 or failure"| FB["Keep the Layer 1 result"]
+  L2 --> REQ
+  FB --> REQ["Request body<br/>model, temperature 0, rubric prompt"]
+  REQ -->|"sha256 of the body"| H(["req_sha256_hex"])
+  REQ --> TEE["NEAR AI Cloud enclave"]
+  TEE --> OUT["Raw response + ed25519 signature"]
+```
+
+- **Layer 1** removes identities (`*.near`, `*.testnet` accounts, emails, `ed25519:` keys) and hides the raw dosages behind a commitment `sha256(raw_formula + salt)`, plus normalized ratios. The salt is 16 random bytes per request.
+- **Layer 1.5 and Layer 2** are optional cloud calls. When the cloud endpoint answers 404 or fails, the pipeline falls back to Layer 1 and does not fail. The result lists the `redaction_mode` that was used.
+- The system prompt is fixed: the model must answer only with JSON keys `efficiency_shift_bps` (-1500 to 1500), `vitality_bonus` (0 to 500) and `phenotype_trait`. The temperature is 0.
+
+## What the contract checks on chain
+
+`apply_tee_mutation_zero_trust` does not trust the caller. It recomputes and verifies everything inside the contract, in this order:
+
+{/* Diagram checked against: vault notes "Snacc - Spec API Backend dan TEE", "Snacc - Fitur F3 Eksekusi Genom Rahasia di NEAR AI Cloud TEE" (invariants I-03 and I-16);
+    code: contracts snacc/src/lib.rs apply_tee_mutation_zero_trust, verify_tee_receipt, parse_mutation_payload, extract_chat_key; snacc/src/state.rs
+    constants TEE_MODEL_ID, TEE_SHIFT_LIMIT_BPS, TEE_VITALITY_BONUS_CAP and the ERR_TEE_* codes. */}
+
+```pele
+flowchart TB
+  S(["apply_tee_mutation_zero_trust"]) --> A{"Caller owns the Snacc?"}
+  A -->|"no"| E1["ERR_NOT_OWNED_BY_CALLEE"]
+  A -->|"yes"| B{"req_sha256_hex equals<br/>pending_commitment?"}
+  B -->|"no"| E2["ERR_COMMITMENT_MISMATCH"]
+  B -->|"yes"| C{"Body at most 4096 bytes?"}
+  C -->|"no"| E3["ERR_TEE_RESPONSE_TOO_LARGE"]
+  C -->|"yes"| D["res_sha256 = env::sha256(body)"]
+  D --> F{"Signer key registered?"}
+  F -->|"no"| E4["ERR_SIGNER_NOT_REGISTERED"]
+  F -->|"yes"| G{"env::ed25519_verify over<br/>model:req_sha256:res_sha256"}
+  G -->|"invalid"| E5["ERR_TEE_RESPONSE_HASH_OR_ED25519_MISMATCH"]
+  G -->|"valid"| H{"chat_id already used?"}
+  H -->|"yes"| E6["ERR_TEE_REPLAY"]
+  H -->|"no"| I{"Payload parses, strain_id matches,<br/>shift and bonus inside the limits?"}
+  I -->|"no"| E7["ERR_PAYLOAD_STRAIN_MISMATCH,<br/>ERR_GUARDRAIL_SHIFT,<br/>ERR_GUARDRAIL_VITALITY,<br/>ERR_TEE_TRAIT_INVALID"]
+  I -->|"yes"| J(["Apply the change, store the attestation,<br/>emit genome_mutated"])
+```
+
+The signed text is exactly `<model>:<req_sha256>:<res_sha256>`, with the model `z-ai/glm-5.3-flash`. The payload is read with a strict schema that rejects unknown fields. The enclave's public key must have been added by the contract owner with `register_attested_signer`, and the owner can remove it with `remove_attested_signer` (events `signer_added` and `signer_removed`). A key cannot be silently overwritten with a different attestation time (`ERR_TEE_SIGNER_OVERWRITE`).
+
+## Honest limits
+
+- **Key registration is a trust step.** A valid signature proves the answer was signed by that key. It does not by itself prove the key lives inside a genuine enclave. Verifying the hardware quote (for example Intel TDX) on chain is a plan and is **not built**. The backend only exposes NEAR AI's attestation report for off-chain inspection (`GET /api/tee/attestation-report`).
+- **A pending commitment has no cancel.** If the apply never succeeds, the Snacc keeps its `pending_commitment` and cannot start another experiment. Keep the response until the apply works.
+- **The trait is only length-checked** (32 characters). A whitelist of traits is not built.
+- **The public backend has no AI key**, so `POST /api/tee/evaluate-genome` answers `503 tee_not_configured` there. The on-chain verification was exercised on testnet with a real enclave response (below).
+- The model is not verified to be "right". The contract only limits how far one answer can move a Snacc.
+
+## Seen on testnet
+
+A real NEAR AI Cloud response was signed by the enclave key `5a0210f2…0caff`. The key was registered by the owner, then the commit and the apply ran on the 2026-11-09 deployment. The call arguments of both transactions are byte-equal to the committed test vector in the umbrella repo (`evidence/tee-vector-live.json`).
+
+| Step | What the chain recorded | Transaction |
+| --- | --- | --- |
+| Register the signer | `signer_added` | [`BovEAtK5…`](https://testnet.nearblocks.io/txns/BovEAtK5gUZ6dthCX5Cn6qHnmZZ9bhtSTpGuYXRqYgfw) |
+| Commit | `genome_committed` for strain 5 | [`EnXBEETd…`](https://testnet.nearblocks.io/txns/EnXBEETdyG4TcjmrzGgJxzczGcxMshXZuEBorG8yHwDC) |
+| Apply | `genome_mutated`: `efficiency_shift_bps` 450, `vitality_bonus` 200; trait `mitokondria-empyrean` | [`B8xdaukd…`](https://testnet.nearblocks.io/txns/B8xdaukdnf3Fh9ZkMNfXxXW7TrHVLZLeXQNdYyBtD2AG) |
+
+The signature in the test vector can also be re-checked offline with no key. That shows the signature is valid under that public key. It does not show that the key belongs to an enclave. See [Evidence](/docs/evidence).

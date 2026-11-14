@@ -1,0 +1,96 @@
+---
+title: Marketplace
+description: snacc-market.testnet is a testnet marketplace for Snacc NFTs. List with nft_transfer_call, hold in escrow, delist or buy. 0% fee, testnet NEAR only, with CLI-signed transaction hashes.
+icon: Store
+---
+
+`snacc-market.testnet` is a small marketplace for Snacc NFTs. A seller sends a Snacc to the market, the market holds it in **escrow**, and a buyer pays NEAR to get it. The contract is in the `market/` crate of the [`contracts`](https://github.com/Snacc-near/contracts) repo. It is **testnet only**: testnet NEAR and testnet `$SNACC` have no monetary value, the fee is 0%, and there is no promise of profit.
+
+Because a Snacc carries its stomach, inventory, organelles and `$ATP` (see [The Snacc organism](/docs/organism)), selling the NFT sells the whole organism, including the `$SNACC` in its stomach.
+
+## How a listing works
+
+The market uses the standard `NEP-171` flow. The Snacc contract was given `nft_transfer_call` for this, and it calls the market's `nft_on_transfer`.
+
+{/* Diagram checked against: contracts market/README.md (methods, listing message, buy and failure handling), market/src/lib.rs (nft_on_transfer, buy, delist, on_buy_settled, on_delist_settled, on_owner_checked),
+    snacc/src/lib.rs nft_transfer_call, nft_resolve_transfer; frontend src/chain/market.ts (MARKET_GAS, call builders); umbrella README ("On-chain proof: the market contract").
+    There is no vault note for the market: it was built after the vault specification. */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor S as Seller
+  actor B as Buyer
+  participant C as snacc-v001.testnet
+  participant M as snacc-market.testnet
+  S->>C: nft_transfer_call(market, token_id, msg with price), 1 yoctoNEAR
+  C->>M: nft_on_transfer(sender_id, previous_owner_id, token_id, msg)
+  M-->>C: false, the token stays in escrow
+  Note over M: listed event, the listing is recorded
+  alt the seller changes their mind
+    S->>M: delist(token_id), 1 yoctoNEAR
+    M->>C: nft_transfer back to the seller
+    Note over M: delisted event
+  else a buyer pays
+    B->>M: buy(token_id) with at least the price attached
+    M->>C: nft_transfer to the buyer
+    M-->>S: price in NEAR
+    M-->>B: the excess is refunded
+    Note over M: sold event
+  end
+```
+
+- **List.** The seller calls `nft_transfer_call` on the Snacc contract with the market as `receiver_id`, 1 yoctoNEAR attached, and the message `{"price":"<yoctoNEAR as a decimal string>"}`. The price must be above 0 and at most 10,000 NEAR. Unknown fields in the message are rejected. When anything is wrong, the market returns `true` and the Snacc goes straight back to the seller. Sellers attach nothing for storage: the market pays for each listing from its own balance.
+- **Delist.** `delist(token_id)` by the seller, 1 yoctoNEAR. The Snacc goes back.
+- **Buy.** `buy(token_id)` by anyone except the seller, attaching at least the price. The listing is removed first, then the Snacc is transferred, then the seller is paid the price and the buyer gets the excess back.
+- **Change the price.** `update_price(token_id, price)` by the seller, 1 yoctoNEAR.
+
+Limits: 20 open listings per seller and 1,000 in total. The owner of the market contract can only pause **new** listings (`set_listings_paused`). `buy`, `delist` and `update_price` keep working, and nobody can withdraw a listed token.
+
+## When a purchase cannot settle
+
+Escrow can fail in the middle, for example when a listed Snacc dies or is adopted while it sits in the market. The market handles it without losing money:
+
+{/* Diagram checked against: contracts market/README.md ("Buy and failure handling", "Known limits"), market/src/lib.rs on_buy_settled, on_owner_checked. */}
+
+```pele
+flowchart TB
+  B(["buy(token_id) with a deposit"]) --> R["Remove the listing, send nft_transfer to the buyer"]
+  R --> Q{"Transfer succeeded?"}
+  Q -->|"yes"| OK["Seller is paid the price,<br/>buyer gets the excess back,<br/>sold event"]
+  Q -->|"no"| RF["Buyer gets the full deposit back,<br/>seller gets nothing"]
+  RF --> V{"Does the market still own the token?<br/>(nft_token view)"}
+  V -->|"yes"| RES["Listing is restored as it was"]
+  V -->|"no"| GONE["Listing stays removed,<br/>delisted event: token_left_market"]
+  V -->|"view fails"| RES
+```
+
+Known limits, from the contract's own README: a Snacc that died while listed cannot be moved by the Snacc contract at all, so its listing stays visible but cannot be bought or delisted, and every buy is refunded in full (only gas is spent). Listed Snaccs keep aging, so check a Snacc with `nft_token` and `get_strain` before you buy. The market is not audited and has unit tests only.
+
+## Events and views
+
+Events use the standard name `snacc_market` (version `1.0.0`): `listed`, `sold`, `delisted` (with `reason` `seller` or `token_left_market`) and `price_updated`. The NFT move itself is also logged by the Snacc contract as a `nep171` `nft_transfer` event.
+
+Views: `get_listing(token_id)`, `get_listings(from_index, limit)`, `get_listings_by_seller(seller_id, from_index, limit)`, `get_listing_count()` and `get_config()` (the NFT contract, the owner, whether listings are paused, `fee_bps` which is 0, and the caps). Paging defaults to 50 and is at most 100.
+
+## In the app
+
+The toolbar `market` button opens the Market window: browse, sell and my listings. The app attaches 100 TGas to a listing call and 150 TGas to `buy` and `delist`. Market calls attach NEAR (a deposit or 1 yoctoNEAR), so they always open the wallet. One-tap play never signs them (see [One-tap play](/docs/one-tap)).
+
+A market refusal is not a failed transaction: a rejected listing hands the Snacc back, and a purchase that cannot settle refunds the buyer, both inside a transaction the wallet reports as successful. For that reason the app reads the chain again after a success and only says "listed" or "bought" when the views agree.
+
+## Seen on testnet
+
+Hashes from the umbrella README. The market was deployed on testnet, and `snacc-v001.testnet` was upgraded to add `nft_transfer_call`. A list, delist and buy run on strain 11 was then done with transactions **signed with the CLI**, each read back from the RPC (final status, no failed receipt).
+
+| Step | What the chain recorded | Transaction |
+| --- | --- | --- |
+| Deploy and `new` of the market | `DeployContract` and `new` on `snacc-market.testnet` | [`BTymNHdj…`](https://testnet.nearblocks.io/txns/BTymNHdjr5D746phRx3H2BQn3zG5bzDGdKpv8BujcGMz) |
+| Upgrade of the Snacc contract | `DeployContract` on `snacc-v001.testnet` | [`8ydFE4Xj…`](https://testnet.nearblocks.io/txns/8ydFE4XjpwYbnrPUULjvtbqbqwU4PYSJ3rJyyVimu4TL) |
+| List strain 11 | `nft_transfer_call` with price 0.1 NEAR; events `nft_transfer` and `listed` | [`6JF7XvVD…`](https://testnet.nearblocks.io/txns/6JF7XvVDJhxax2hxXF57WuzH1JrSkaz12TRPzmegTPwN) |
+| Delist strain 11 | `delist`; events `nft_transfer` and `delisted` | [`8Q3p33jw…`](https://testnet.nearblocks.io/txns/8Q3p33jwX8sfugNy5eMQ64aZJoUydm8kCrUJMXxHZv41) |
+| Buy strain 11 | `buy` attaching 0.1 NEAR; events `nft_transfer` and `sold` | [`86HXrAAQ…`](https://testnet.nearblocks.io/txns/86HXrAAQ3WTpBYTBwAJ3yeNbUev9ttdLRvFUpDZ8VkAd) |
+
+<Callout type="warn" title="What is and is not verified">
+These hashes show that the market contract and the upgraded Snacc contract work together on testnet. They do **not** show that the app's Market window works with a real wallet: that has not been tried. Because of the upgrade, the code now on `snacc-v001.testnet` is no longer the build described by the older evidence files. See the dated code hash note in [Evidence](/docs/evidence).
+</Callout>

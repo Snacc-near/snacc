@@ -13,7 +13,7 @@ Snacc is a polyrepo under the public GitHub organisation [`Snacc-near`](https://
 | [`Snacc`](https://github.com/Snacc-near/Snacc) (umbrella) | The README with the live-status table, docs, demo orchestration, evidence and this docs site |
 | [`contracts`](https://github.com/Snacc-near/contracts) | The Rust contract `snacc-v001.testnet` (`near-sdk =5.29.1`) with the dynamic SVG renderer, plus the testnet marketplace crate `market/` (`snacc-market.testnet`) |
 | [`oracle-tee`](https://github.com/Snacc-near/oracle-tee) | The TEE client: local redaction of the formula, the NEAR AI Cloud enclave call and the `ed25519` signature check |
-| [`sdk`](https://github.com/Snacc-near/sdk) | The lab SDK: the `NEP-297` event parser, the session-key manager for one-tap play (deposit-free methods only) and a contract client |
+| [`sdk`](https://github.com/Snacc-near/sdk) | The lab SDK for scripts and integrations: the `NEP-297` event parser, `SessionKeyManager` (a function-call key for deposit-free methods) and the `SnaccClient` contract client. The app does not use it: its own one-tap play is code in the `frontend` repo (see [One-tap play](/docs/one-tap) and [SDK](/docs/sdk)) |
 | [`backend`](https://github.com/Snacc-near/backend) | The read-only indexer API (`/api/crucible/*` and friends) and `supabase/`: player-profile migrations and Edge Functions |
 | [`frontend`](https://github.com/Snacc-near/frontend) | The landing page and the game at `/app` |
 | [`scripts`](https://github.com/Snacc-near/scripts) | `verify:thesis`, `demo:replay`, `gladi:retry` and the economic simulations |
@@ -49,7 +49,7 @@ flowchart TB
 What each arrow is:
 
 - **Views.** The browser reads `get_strain`, `get_macro_state`, `get_colony`, `nft_tokens_for_owner` and others straight from the contract over NEAR RPC. Where the chain gives no value the UI shows `—`.
-- **Signed calls.** The wallet (NEAR Connect, or an email login through Privy) signs every transaction that attaches NEAR. Optional one-tap play uses one restricted function-call key for eight deposit-free methods.
+- **Signed calls.** The wallet (NEAR Connect, or an email login through Privy) signs every transaction that attaches NEAR. Optional one-tap play uses one restricted function-call key for eight deposit-free methods. That key is the frontend's own code, not the SDK's `SessionKeyManager` (see [One-tap play](/docs/one-tap)).
 - **The indexer.** The `backend` never signs a transaction. It serves views and decoded events as plain JSON.
 - **Supabase.** Profiles, sign-in, achievements, quests, notifications and an event history live off chain. Nothing there changes what the contract proves.
 - **The TEE path** is dotted: it is gated, and the public backend runs without the NEAR AI key, so `POST /api/tee/evaluate-genome` answers `503 tee_not_configured` there. The on-chain verification was exercised on testnet (see below).
@@ -146,5 +146,5 @@ The contract recomputes the SHA-256 of the exact response body, rebuilds the sig
 Honest notes:
 
 - The strict design order "commit before calling the enclave" is **not** achieved on this server-salted path. The commit binds the hash after it has been computed.
-- The on-chain commit and apply were exercised on testnet: [`FnJmzrT4…`](https://testnet.nearblocks.io/txns/FnJmzrT4Z5AqdWMnVhumBKxPEUg64Azg2EUzGGYNb2tT) then [`6s7UFfjd…`](https://testnet.nearblocks.io/txns/6s7UFfjd8XBPZ6b9FK4tzGhEo6kstAVeNMCpdwAT9FCN) (from the README, committed gladi run).
+- The on-chain commit and apply were exercised on testnet: [`EnXBEETd…`](https://testnet.nearblocks.io/txns/EnXBEETdyG4TcjmrzGgJxzczGcxMshXZuEBorG8yHwDC) then [`B8xdaukd…`](https://testnet.nearblocks.io/txns/B8xdaukdnf3Fh9ZkMNfXxXW7TrHVLZLeXQNdYyBtD2AG) (from `docs/evidence-pack.md` and the committed run manifest). See [TEE verification](/docs/tee) and [Evidence](/docs/evidence).
 - Verifying the enclave's hardware quote on chain (for example Intel TDX) is a plan, not built.

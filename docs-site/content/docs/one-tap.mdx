@@ -1,0 +1,110 @@
+---
+title: One-tap play
+description: How the app's own one-tap play works. One function-call key with a 0.25 NEAR gas allowance, one receiver, eight deposit-free methods, a non-extractable browser key, and a fallback to one wallet popup. Not yet verified with a real wallet.
+icon: Zap
+---
+
+By default every game action opens a wallet popup. **One-tap play** is an opt-in setting that lets eight deposit-free actions go out without a popup each time. It is implemented in the app's own frontend code (`src/chain/oneTap.ts`, `oneTapKeys.ts` and `oneTapSession.ts` in the [`frontend`](https://github.com/Snacc-near/frontend) repo). NEAR **testnet only**.
+
+<Callout type="warn" title="Not verified with a real wallet">
+No one-tap transaction has been sent on testnet yet, and no real wallet has been seen accepting the key. One-tap play is covered by unit tests with a fake RPC and a fake wallet only. It is live in the production build and opt-in, and nothing more than that is claimed here.
+</Callout>
+
+## What the key may do
+
+When you switch it on in **Settings, One-tap play**, the wallet adds **one** function-call access key to your account. Its limits are fixed in the code:
+
+| Limit | Value |
+| --- | --- |
+| Gas allowance | 0.25 NEAR (`ONE_TAP_ALLOWANCE_NEAR`). The wallet request is refused by the app if it asks for more than 1 NEAR |
+| Receiver | only `snacc-v001.testnet` |
+| Methods | exactly the 8 deposit-free methods below, no others |
+| Deposit | none. NEAR rejects a transaction signed by a function-call key that attaches a deposit |
+| Key type | a function-call key. The app never asks for a full-access key |
+
+The 8 methods are read from `ONE_TAP_METHODS` in `src/chain/oneTap.ts`, which keeps every method the app sends in a table with its deposit rule and takes those with the rule `none`, sorted:
+
+`allocate_atp`, `claim_industrial_dividend`, `divide_strain`, `feed_strain`, `harvest_starving_strain`, `npc_buy_spores`, `splice_strains` and `synthesize_and_redeem_aether`.
+
+The gas is paid by your own account and counted against the key's allowance. There is no relayer and no gas station.
+
+## What always stays in the wallet
+
+A call goes out with the key only if it is a single call to `snacc-v001.testnet`, with no deposit and with a method from the list. Everything else opens the wallet:
+
+| Why it stays in the wallet | Methods |
+| --- | --- |
+| It attaches NEAR (a stake, a catalyst fee, a storage deposit) | `incubate_strain`, `extract_spores`, `transmute_spores_to_enzyme`, `synthesize_elixir`, `storage_deposit` |
+| It needs exactly 1 yoctoNEAR | `nft_transfer`, `nft_transfer_call`, `ft_transfer` |
+| It pays another player | `adopt`, `hostile_takeover_splice` |
+| It is a market call | `buy`, `delist` and `update_price` on `snacc-market.testnet` (a listing is the `nft_transfer_call` above) |
+
+`adopt` and `hostile_takeover_splice` attach no NEAR, but they pay `$SNACC` from your Snacc to a counterparty you pick. A script running on the site could use a popup-free key to drain a Snacc into a distressed one it controls, so these two keep the wallet popup on purpose. The same goes for your first signed action, which registers your account with a storage deposit.
+
+Hatching without any NEAR (a relayer or meta-transactions) is a plan for after the hackathon and is **not built**.
+
+## How it works
+
+{/* Diagram checked against: umbrella README (status table, "One-tap play"), docs/nep611-signless.md, frontend src/chain/oneTap.ts (CONTRACT_METHOD_DEPOSIT, ONE_TAP_METHODS,
+    checkWalletTx, signlessCall, sendSignless), src/chain/oneTapSession.ts (enable, disable), src/chain/oneTapKeys.ts (key storage). This is the app's own code:
+    the SDK's SessionKeyManager (sdk repo) is a separate library that the app does not import. */}
+
+```pele
+sequenceDiagram
+  autonumber
+  actor P as Player
+  participant A as App
+  participant K as Browser key store
+  participant W as Wallet
+  participant R as NEAR RPC
+  participant C as snacc-v001.testnet
+  P->>A: Settings, One-tap play, switch on
+  A->>K: make an Ed25519 key, save it before asking the wallet
+  A->>W: one AddKey: function-call key, receiver snacc-v001.testnet, 8 methods, 0.25 NEAR
+  W-->>A: approved, the key is on the account
+  P->>A: Feed
+  A->>R: view_access_key, nonce, block hash, allowance
+  A->>K: sign the transaction bytes with the key
+  A->>R: send_tx, signed in the browser, deposit 0
+  R->>C: feed_strain
+  C-->>A: fed event, no popup
+```
+
+1. **Switch on.** The app makes a key in the browser and saves it **before** it asks the wallet, so a key that reaches the chain can always be deleted from the app. The wallet is asked for one `AddKey` transaction. The app's own allowlist refuses anything else it is asked to sign: only function calls to the Snacc contract or the market, the exact one-tap `AddKey`, or the `DeleteKey` of the key this browser holds.
+2. **Send.** For each eligible action the app reads the key from the chain (nonce, a recent block hash, permission, allowance), checks that the permission matches (same receiver, the method is allowed, the allowance covers the gas), signs the transaction bytes with the stored key, and sends it with `send_tx`. The prepaid gas is the same as on the wallet path, for example 100 TGas for `feed_strain`.
+3. **Switch off.** One wallet `DeleteKey` transaction removes the key from the account, and the app forgets it. A key that is already gone is only forgotten locally.
+
+## Where the key lives
+
+- **Preferred: IndexedDB.** The private key is a **non-extractable** Web Crypto Ed25519 key, stored in the browser database `snacc_one_tap` (object store `keys`). Scripts on the page can ask the browser to sign with it, but cannot read the key bytes out. Only the public key goes on chain.
+- **Fallback: localStorage.** When IndexedDB cannot hold such a key, the private key bytes are kept in `localStorage` under `snacc_one_tap`, and Settings says so while it is in use.
+- **No Web Crypto Ed25519, no one-tap.** The app bundles no JavaScript signer.
+
+Non-extractable does not mean unusable: a script that runs on the page can still ask the browser to sign, but only for the 8 methods, only to `snacc-v001.testnet`, and only until the 0.25 NEAR allowance is spent. That limit is why the key is restricted so tightly.
+
+## The fallback to one wallet popup
+
+If one-tap cannot be used, the action falls back to **one wallet popup** and is never sent twice.
+
+{/* Diagram checked against: frontend src/chain/oneTap.ts (signlessCall, sendSignless, classifySendError, FallbackReason, NOT_CONFIRMED_MESSAGE) and the header comment of that file ("The rule that keeps a send from happening twice"). */}
+
+```pele
+flowchart TB
+  A(["An action is about to be sent"]) --> Q1{"One call to snacc-v001.testnet,<br/>no deposit, method in the 8?"}
+  Q1 -->|"no"| W1["Wallet popup"]
+  Q1 -->|"yes"| Q2{"One-tap is on, the key is on the account<br/>and still matches this version's method list?"}
+  Q2 -->|"no"| W2["Wallet popup, with a notice"]
+  Q2 -->|"yes"| Q3{"Allowance covers the gas?"}
+  Q3 -->|"no"| W3["Wallet popup, with a notice"]
+  Q3 -->|"yes"| S["Sign in the browser and broadcast"]
+  S --> Q4{"What did the network say?"}
+  Q4 -->|"executed"| OK(["Result shown, no popup"])
+  Q4 -->|"clean refusal before it could land"| W4["Wallet popup, once"]
+  Q4 -->|"no answer, it may have landed"| NC(["Not confirmed, with the local hash.<br/>The wallet is not asked again"])
+```
+
+The rule that stops a double send: the wallet fallback is used only when the transaction was never broadcast, or when an RPC answered that it is invalid, so it cannot land. Once a broadcast may have reached the network (a timeout, a dropped connection), the result is shown as "not confirmed" with the locally computed hash, and the wallet is not asked again. The reasons for a fallback include a missing key, an outdated method list, a low allowance and an unreachable RPC.
+
+## Not the SDK's session key
+
+The [SDK](/docs/sdk) has its own `SessionKeyManager`, a separate library for scripts and integrations. The app does not use it. The app's one-tap play is the frontend's own code described on this page. The SDK's list of deposit-free methods (`SIGNLESS_METHODS`) is broader than the app's: it also includes `commit_genome_experiment`, `apply_tee_mutation_zero_trust`, `conjugate_traits`, `advance_epoch`, `ft_burn`, `adopt` and `hostile_takeover_splice`. The app leaves those out so that its key can do no more than the app needs.
