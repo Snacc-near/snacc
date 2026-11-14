@@ -4,6 +4,8 @@ description: Divide, splice, adopt, hostile takeover and harvest. What each acti
 icon: GitFork
 ---
 
+import { Figure } from '@/components/figure';
+
 A Snacc is a small balance sheet: a stomach of `$SNACC`, an inventory, `$ATP` and a vitality number. Players grow colonies of them, merge them, rescue weak ones, buy out distressed ones and harvest starved ones. This page covers the five colony actions and the rules that fence them. Names are copied from the contract (`snacc-v001.testnet`). NEAR **testnet only**.
 
 ## Which action fits which Snacc
@@ -54,6 +56,16 @@ Division is the only free way to make a Snacc, so the contract fences it. Three 
 | Divide gate | `total_divides` at most `total_mergers + total_lyses` | `ERR_BIRTHS_EXCEEDED` | Divisions in the whole game cannot outrun mergers and harvests |
 
 The divide gate is global, not per player. `total_mergers` counts every `splice_strains` and `hostile_takeover_splice`, and `total_lyses` counts every `harvest_starving_strain`. A new Snacc made by paid hatching (`incubate_strain`) is free because real NEAR enters the game. Free division needs a "budget" that merges and harvests create. `adopt` does not add to the budget.
+
+{/* Figure checked against: code contracts snacc/src/state.rs (MAX_COLONY_SIZE 5, MAX_GENERATION 8) and snacc/src/lib.rs
+    (divide_strain, splice_strains, harvest_starving_strain, the divide gate with total_divides, total_mergers and total_lyses). */}
+
+<Figure
+  name="colony"
+  label="FIG 04 · colony plate"
+  title="Interactive isometric Petri dish with up to five Snacc cells and a balance scale for the divide gate"
+  caption="Divide adds a cell one generation older and splits the balance. The scale shows the gate: total_divides must not exceed total_mergers plus total_lyses. Splice merges two cells; Harvest lyses a starved one. Both add to the budget."
+/>
 
 {/* Diagram checked against: vault notes "Snacc - Koloni Sel dan Keterlibatan User", "Snacc - Siklus Hidup Sel dan Metabolisme" (Kamus Angka Resmi: pagar koloni);
     the vault says births must stay at most merges plus lyses, which would block the first hatch, so the code applies the gate to divisions only;

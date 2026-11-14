@@ -4,9 +4,24 @@ description: snacc-market.testnet is a testnet marketplace for Snacc NFTs. List 
 icon: Store
 ---
 
+import { Figure } from '@/components/figure';
+
 `snacc-market.testnet` is a small marketplace for Snacc NFTs. A seller sends a Snacc to the market, the market holds it in **escrow**, and a buyer pays NEAR to get it. The contract is in the `market/` crate of the [`contracts`](https://github.com/Snacc-near/contracts) repo. It is **testnet only**: testnet NEAR and testnet `$SNACC` have no monetary value, the fee is 0%, and there is no promise of profit.
 
 Because a Snacc carries its stomach, inventory, organelles and `$ATP` (see [The Snacc organism](/docs/organism)), selling the NFT sells the whole organism, including the `$SNACC` in its stomach.
+
+## Try a listing
+
+{/* Figure checked against: code contracts market/src/lib.rs (nft_on_transfer, buy, delist) and market/README.md (0% fee, error codes). */}
+
+<Figure
+  name="market"
+  label="FIG 05 · market escrow"
+  title="Interactive isometric display case: list a Snacc through nft_transfer_call, buy it with testnet NEAR, or delist it"
+  caption="List sends the Snacc into the case through nft_transfer_call. Buy moves testnet NEAR to the seller and the Snacc to the buyer. Delist returns it. Testnet only."
+/>
+
+The figure is a model of the flow below. It does not call the market contract.
 
 ## How a listing works
 

@@ -4,7 +4,23 @@ description: The reactive central bank of Snacc. A temperature reading of the co
 icon: Thermometer
 ---
 
+import { Figure } from '@/components/figure';
+
 `CrucibleTemp` is the reactive central bank of Snacc. It is not a person or a committee. It is a number the contract works out from how busy the colony is, and two rules that act on every fee. When the colony is hot, part of each fee is **burned**. When the colony is cold, the **Pantry** pays a small rebate. `$SNACC` on testnet has no monetary value, and the swings are a game feature, not a promise.
+
+## Try the thermometer
+
+{/* Figure checked against: code contracts snacc/src/state.rs (FEVER_THRESHOLD_MK 610, HYPOTHERMIA_THRESHOLD_MK 600, FEVER_BURN_BPS 350, REBATE_BPS 200)
+    and snacc/src/lib.rs (get_crucible_temp, zone_at, apply_thermostat_fee). */}
+
+<Figure
+  name="crucible"
+  label="FIG 03 · CrucibleTemp"
+  title="Interactive isometric thermometer with the zones Hypothermia, Normal and Fever and the fee pipes they open"
+  caption="Move the slider, then feed a fee of 1000 u. Above 610 mK (Fever) 3.5% of the fee is burned; below 600 mK (Hypothermia) the Snacc gets a 2% rebate from the Pantry; in between nothing is burned."
+/>
+
+The figure runs in your browser only and nothing in it touches a chain. The sections below give the exact rules and where they stop being simple.
 
 ## The temperature
 
