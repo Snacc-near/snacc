@@ -48,7 +48,7 @@ Live in the build does not mean "exercised on chain" or "tried with a real walle
 | Share previews: `/snacc/<id>` and `/p/<account>` answer link-preview crawlers with an `og:image` PNG rendered from the on-chain SVG | live | reads only. Checked 2026-11-14: a crawler request for `/snacc/11` returns an `og:image` that points to `/api/og/snacc/11`, and that URL returns `image/png` |
 | Invite links `?ref=<account>`; the inviter gets a cosmetic "Recruiter" badge when a friend hatches (no token, no XP) | live | off-chain data |
 | Urgent "about to be snacked" alert with a direct feed button | live | reads only; the feed button is the normal feed action |
-| Web Push on this device (service worker `/sw.js`, opt-in toggle in Settings) | live, opt-in | **Not verified:** real push delivery to a device |
+| Web Push on this device (service worker `sw.js`, opt-in toggle in Settings) | live, opt-in | **Not verified:** real push delivery to a device |
 | Name moderation and admin announcements | live | off-chain data |
 | Usage and error telemetry: first-party, goes through the Supabase Edge Function `track`, respects opt-out and Do Not Track | live | off-chain data |
 | "Download my data" (JSON export) in Settings | live | off-chain data |
@@ -83,7 +83,7 @@ The marketplace contract `snacc-market.testnet` (the `contracts` repo, `market/`
 | Delist strain 11 | `delist` by the seller (1 yoctoNEAR); events `nft_transfer` back and `delisted` | [`8Q3p33jwX8sfugNy5eMQ64aZJoUydm8kCrUJMXxHZv41`](https://testnet.nearblocks.io/txns/8Q3p33jwX8sfugNy5eMQ64aZJoUydm8kCrUJMXxHZv41) |
 | Buy strain 11 | `buy` by `snacc-starter.testnet` attaching 0.1 NEAR; events `nft_transfer` to the buyer and `sold` | [`86HXrAAQ3WTpBYTBwAJ3yeNbUev9ttdLRvFUpDZ8VkAd`](https://testnet.nearblocks.io/txns/86HXrAAQ3WTpBYTBwAJ3yeNbUev9ttdLRvFUpDZ8VkAd) |
 
-What this does and does not show: it shows the market contract and the upgraded Snacc contract work together on testnet. The run also listed the strain a second time and moved it back; those two hashes are not cited here. It does **not** show that the UI's Market window works with a real wallet. Because of the upgrade, the code on `snacc-v001.testnet` is no longer the build that `evidence/snacc.wasm` and the gladi evidence below describe: the `code_hash` read from the RPC on 2026-11-14 is `4m2z2PiZTa1mSG5A8cnr5b9fxDWY4n3HiPGzcP7EtwiH`, while `evidence/snacc.wasm` hashes to `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr`.
+What this does and does not show: it shows the market contract and the upgraded Snacc contract work together on testnet. The run also listed the strain a second time and moved it back; those two hashes are not cited here. It does **not** show that the UI's Market window works with a real wallet. Because of the upgrade, the code on `snacc-v001.testnet` is no longer the build that `evidence/snacc.wasm` and the gladi evidence below describe: the live on-chain `code_hash` `4m2z2PiZTa1mSG5A8cnr5b9fxDWY4n3HiPGzcP7EtwiH` (read from the RPC on 2026-11-14) differs from the `code_hash` `DMRgsiLJy74V5RS8txLHeJL3T97ivLHuEtY56sSCYmcr` that `evidence/snacc.wasm` hashes to.
 
 ## Repo layout (owner decision 2026-11-06: `x207`-style polyrepo)
 
