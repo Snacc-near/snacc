@@ -1,0 +1,52 @@
+{
+  "name": "snacc-docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Docs site of Snacc, an on-chain economy game on NEAR (Fumadocs, Next.js)",
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start",
+    "types:check": "next typegen && tsc --noEmit",
+    "lint": "eslint",
+    "test": "vitest run",
+    "check:diagrams": "node scripts/check-diagrams.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.90",
+    "@ai-sdk/react": "4.0.174",
+    "@base-ui/react": "1.9.0",
+    "@fuma-translate/react": "1.0.2",
+    "ai": "7.0.170",
+    "class-variance-authority": "0.7.1",
+    "cn": "0.5.2",
+    "flexsearch": "0.8.212",
+    "fumadocs-core": "16.19.0",
+    "fumadocs-mdx": "15.6.0",
+    "fumadocs-ui": "npm:@fumadocs/base-ui@16.19.0",
+    "lucide-react": "1.72.0",
+    "next": "16.4.5",
+    "pele": "1.13.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remark": "15.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-rehype": "11.1.2",
+    "remend": "1.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/mdx": "2.0.14",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.5",
+    "postcss": "8.5.32",
+    "tailwindcss": "4.3.5",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "vitest": "5.1.0"
+  }
+}
