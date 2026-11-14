@@ -1,0 +1,141 @@
+---
+title: SDK
+description: The Snacc lab SDK in TypeScript. SnaccClient wraps the contract's methods, SessionKeyManager signs deposit-free calls with a function-call key, and the event parser reads NEP-297 logs. Usage and known limits.
+icon: Package
+---
+
+The [`sdk`](https://github.com/Snacc-near/sdk) repo is a small TypeScript library for scripts and integrations. It has no runtime dependencies (Web Crypto and `fetch` only), needs Node 20 or later, and has three parts:
+
+| Part | What it is |
+| --- | --- |
+| `SnaccClient` | A typed wrapper around the contract's public methods and views |
+| `SessionKeyManager` | A function-call access key for `snacc-v001.testnet`, used to sign deposit-free calls without a wallet |
+| `parseEventLine`, `parseEventLines` | A parser for the contract's `NEP-297` event logs |
+
+The package is `snacc-lab-sdk`, marked `private`, and is **not published to npm**. To use it, clone the repo and build it:
+
+```bash
+git clone https://github.com/Snacc-near/sdk.git && cd sdk
+npm ci && npm test        # builds to dist/ and runs the unit tests
+```
+
+`SNACC_TESTNET_IT=1 npm test` also runs the testnet integration tests, with a fresh faucet account per run. NEAR **testnet only**.
+
+<Callout type="info" title="Not the app's one-tap code">
+The app's own one-tap play is separate code in the frontend (see [One-tap play](/docs/one-tap)). The frontend does not import this SDK. `SessionKeyManager` is for scripts, bots and integrations.
+</Callout>
+
+## SnaccClient
+
+`SnaccClient` takes a contract id and a **transport**. The transport is a small interface, so the client works with a mock in tests, with a session key, or with your own signer:
+
+```ts
+interface Transport {
+  view<T>(method: string, args: Record<string, unknown>): Promise<T>;
+  call(method: string, args: Record<string, unknown>, attachedDepositYocto: string): Promise<TxResult>;
+}
+```
+
+The client chooses the deposit for you from the contract's rules: the stake for `incubateStrain`, the fee for the stage methods, 1 yoctoNEAR for the transfers, and 0 for the rest.
+
+| Group | Client methods |
+| --- | --- |
+| Views | `getStrain`, `getInventory`, `getColony`, `getColonyAtp`, `getRiskHeat`, `getAppetiteMeter`, `getMacroState`, `getGlobalSolvency`, `getCrucibleTemp`, `getDividendPool`, `getEpochDividendRate`, `getDividendContribution`, `getTopFeeder`, `getBurstState`, `getNpc`, `getNpcQuote`, `getTotalWealth`, `getStorageBalance`, `getSolvencyTier`, `getSandboxClock`, `protocolVersion`, `ftBalanceOf`, `ftTotalSupply`, `ftMetadata`, `nftToken`, `nftMetadata`, `nftTotalSupply`, `nftTokens`, `nftSupplyForOwner`, `nftTokensForOwner`, `storageBalanceBounds` |
+| Hatch and account | `incubateStrain`, `materializeSubaccount`, `storageDeposit`, `storageWithdraw`, `storageUnregister` |
+| Feeding and production | `feedStrain`, `allocateAtp`, `extractSpores`, `transmuteSporesToEnzyme` (option `diet` for the zone discount), `synthesizeElixir` |
+| Colony | `divideStrain`, `spliceStrains`, `adopt`, `hostileTakeoverSplice`, `harvestStarvingStrain`, `conjugateTraits` |
+| Economy | `npcBuySpores`, `synthesizeAndRedeemAether`, `claimIndustrialDividend`, `advanceEpoch`, `ftBurn` |
+| Genome | `commitGenomeExperiment`, `applyTeeMutationZeroTrust`, `registerAttestedSigner`, `removeAttestedSigner` |
+| Tokens | `nftTransfer`, `nftTransferCall`, `ftTransfer`, `ftTransferCall` |
+| Sandbox | `advanceSandboxClock` (contract owner, testnet) |
+
+Every call returns `{ txHash, events, success, logs? }`, with the events already parsed. `U128` values come back as decimal strings.
+
+Method and argument names follow the contract exactly, in camelCase for the client and in the contract's names inside the JSON (see [Contract reference](/docs/contract-reference)).
+
+## SessionKeyManager
+
+A function-call key lets a script sign game calls without a wallet popup. The manager creates the key, registers it on the account, stores it, signs with it, reports its state and revokes it.
+
+{/* Diagram checked against: sdk repo README (Function Call Access Key), src/session-key.ts (SessionKeyManager: createSession, call, status, revoke, forget, asTransport;
+    SIGNLESS_METHODS, DEPOSIT_METHODS, SessionKeyError codes, DEFAULT_ALLOWANCE_YOCTO, LOW_ALLOWANCE_YOCTO); vault note "Snacc - Fitur F1 Signless Lab Onboarding dan Inkubasi Strain" (older: hatching is not signless). */}
+
+```pele
+stateDiagram-v2
+  [*] --> missing
+  missing --> active: createSession, key registered on the account
+  active --> allowance_low: allowance below 0.01 NEAR
+  allowance_low --> exhausted: allowance reaches 0
+  active --> exhausted: allowance reaches 0
+  active --> missing: revoke, key deleted and record removed
+  allowance_low --> missing: revoke
+  exhausted --> missing: revoke
+  active --> revoked: the key is deleted on chain by someone else
+  revoked --> missing: forget
+  missing: missing, no local record
+  active: active, the key can sign
+  allowance_low: allowance_low, nearly out of gas allowance
+  exhausted: exhausted, the allowance is spent
+  revoked: revoked, a local record for a key that is gone
+```
+
+- **Defaults.** The receiver is `snacc-v001.testnet`. The allowance is 0.25 NEAR. `status` reports `allowance_low` below 0.01 NEAR. The default gas for a call is 30 TGas. `mgr.call(accountId, method, args, { gas })` sets another amount, while a client built on `asTransport` always uses the default. The app attaches 100 to 150 TGas, and the measured burnt gas of `feed_strain` is about 3.4 TGas.
+- **The method list.** `SIGNLESS_METHODS` is the default list: `allocate_atp`, `feed_strain`, `commit_genome_experiment`, `apply_tee_mutation_zero_trust`, `splice_strains`, `hostile_takeover_splice`, `adopt`, `divide_strain`, `harvest_starving_strain`, `conjugate_traits`, `npc_buy_spores`, `synthesize_and_redeem_aether`, `claim_industrial_dividend`, `advance_epoch` and `ft_burn`.
+- **No deposits.** A function-call key cannot attach NEAR. `DEPOSIT_METHODS` (`incubate_strain`, `materialize_subaccount`, `extract_spores`, `transmute_spores_to_enzyme`, `synthesize_elixir`, `nft_transfer`, `nft_transfer_call`, `ft_transfer`, `ft_transfer_call`, `storage_deposit`, `storage_unregister`) are refused locally with `DEPOSIT_NOT_ALLOWED`. Those still need a wallet.
+- **Errors.** `SessionKeyError.code` is one of `INVALID_CONFIG`, `NO_SESSION`, `METHOD_NOT_ALLOWED`, `DEPOSIT_NOT_ALLOWED`, `ALLOWANCE_EXHAUSTED`, `KEY_REVOKED`, `METHOD_MISMATCH`, `RECEIVER_MISMATCH`, `REGISTRATION_FAILED`, `RPC_ERROR` or `BAD_KEY`.
+- **Where the key is kept.** In a `SessionKeyStore` you provide: `MemorySessionKeyStore`, `WebStorageSessionKeyStore` (localStorage), or your own. The stored record holds the secret key as text, so treat the store like a secret. This differs from the app, which uses a non-extractable browser key.
+- **Registering the key.** Creating a session needs a `KeyRegistrar` that adds the key to the player's account. In a browser that is a wallet. For tests and scripts, `fullAccessRegistrar(rpc, secretKey)` signs the `AddKey` with a full-access key.
+
+## Example
+
+A Node script on testnet that reads state and feeds a Snacc with a session key. The account's full-access key comes from the environment, and is used only once to add the session key:
+
+```ts
+import { JsonRpcProvider, SessionKeyManager, fullAccessRegistrar, SnaccClient } from "snacc-lab-sdk";
+
+const rpc = new JsonRpcProvider();                       // FastNEAR testnet by default
+const mgr = new SessionKeyManager({ rpc });              // keeps the session key in memory
+
+// Once: add a function-call key to the account.
+await mgr.createSession({
+  accountId: "alice.testnet",
+  registrar: fullAccessRegistrar(rpc, process.env.ALICE_FULL_ACCESS_KEY!),
+});
+
+// The ids in this transport are turned into numbers, see "Known limits" below.
+const U64 = new Set(["strain_id", "target_id", "dominant_id", "absorbed_id", "raider_strain_id",
+  "distressed_target_id", "expected_target_nonce", "from_strain_id", "to_strain_id", "epoch", "attested_at_sec"]);
+const fix = (a: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(a).map(([k, v]) => [k, U64.has(k) && typeof v === "string" ? Number(v) : v]));
+const base = mgr.asTransport("alice.testnet");
+
+const client = new SnaccClient({
+  contractId: "snacc-v001.testnet",
+  transport: { view: (m, a) => base.view(m, fix(a)), call: (m, a, d) => base.call(m, fix(a), d) },
+});
+
+console.log(await client.getCrucibleTemp());
+await client.feedStrain(1, "50000000000000000000000");  // 0.05 $SNACC, deposit 0
+```
+
+## Event parser
+
+```ts
+import { parseEventLines } from "snacc-lab-sdk";
+
+const events = parseEventLines(receiptLogs);   // non-event lines are skipped
+for (const e of events) if (e.kind === "fed") console.log(e.strain_id, e.atp_minted);
+```
+
+It accepts the plain `{"kind": ...}` shape and the `EVENT_JSON:{"standard","version","event","data":[...]}` wrapper. It reads the `snacc` events and the standard `nep141` and `nep171` token events, plus the plain `subaccount_materialized` log line. A broken line raises `EventParseError` with a `reason` (`INVALID_JSON`, `NOT_AN_EVENT_OBJECT`, `UNKNOWN_KIND` or `MISSING_FIELDS`). NEP-141 amounts are decimal strings.
+
+## Known limits
+
+<Callout type="warn" title="Check these before you rely on the SDK">
+These come from reading the SDK against the live contract on 2026-11-14. Neither is fixed in the SDK repo yet.
+</Callout>
+
+- **`u64` arguments are sent as strings.** `SnaccClient` turns `strain_id`, `epoch`, `expected_target_nonce` and the other ids into decimal strings, but the contract only accepts JSON numbers for them. A view with `{"strain_id":"1"}` is answered with `invalid type: string "1", expected u64`. Until this is fixed, wrap the transport and turn the id fields back into numbers, as the example above does. Numbers are safe here because ids stay far below 2^53.
+
+- **The event parser does not know three events.** `signer_added`, `signer_removed` and `sandbox_clock_advanced` are missing from its list, so parsing a receipt that contains one throws `UNKNOWN_KIND`. This affects the contract-owner methods `registerAttestedSigner`, `removeAttestedSigner` and `advanceSandboxClock`.
+- **Parity.** A test (`parity.test.ts`) checks that the client wraps every public contract method. It runs against a mock transport and does not send transactions.

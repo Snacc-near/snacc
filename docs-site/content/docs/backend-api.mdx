@@ -1,0 +1,95 @@
+---
+title: Backend API
+description: The read-only indexer API (/api/crucible/macro, /api/strains, /api/events and more) and the Supabase Edge Functions. Endpoints, response shapes, errors and what each part is for.
+icon: Server
+---
+
+The [`backend`](https://github.com/Snacc-near/backend) repo holds two separate parts:
+
+| Part | Where | What it does |
+| --- | --- | --- |
+| **Indexer API** | `src/` | A read-only HTTP API in plain Node (`node:http`, no runtime dependencies). It reads contract views and decodes events. It **never signs a transaction** |
+| **Supabase backend** | `supabase/` | Database migrations and eight Edge Functions for the off-chain player features (see [Profiles, quests and seasons](/docs/profiles)) |
+
+NEAR **testnet only**. The public deployment of the indexer runs without a NEAR AI key.
+
+{/* Diagram checked against: backend README (endpoint table, poller note, environment), src/server.ts (routes), src/near.ts (RPC pool), src/poller.ts (NearBlocks account feed, tx RPC),
+    supabase/README.md (chain-index); vault notes "Snacc - Spec API Backend dan TEE", "Snacc - DFD Level 1" (the vault says the indexer stores to SQLite: the code keeps an
+    in-memory event cache and a NearBlocks poller, with long history in Supabase chain-index). */}
+
+```pele
+flowchart LR
+  FE["Browser app"] -->|"GET /api/..."| API["Indexer API<br/>node:http, read-only"]
+  API -->|"views, ordered RPC pool,<br/>short cache"| RPC[("NEAR testnet RPC")]
+  POLL["Event poller"] -->|"tx discovery,<br/>1 call per tick"| NB[("NearBlocks v3<br/>account feed")]
+  POLL -->|"tx outcomes with EVENT_JSON"| RPC
+  POLL --> MEM["In-memory event cache"]
+  MEM --> API
+  CI["Edge Function chain-index<br/>every 10 minutes"] -->|"EVENT_JSON logs"| DB[("Supabase<br/>chain_events_snacc")]
+  CI --> NB
+  CI --> RPC
+  FE -->|"history, lineage, graveyard"| DB
+```
+
+## The indexer API
+
+Every route is a `GET` unless noted. A trailing slash is ignored. Responses are JSON. `u128` values and large `u64` values (`atp_balance`, `feast_volume`, `last_allocate_epoch` and others) are always exact **strings**.
+
+| Route | What it returns | Status |
+| --- | --- | --- |
+| `/api/health` | `ok`, `contractId`, the RPC pool snapshot (hosts and cooldowns only, no secrets), `indexer_incomplete` | live |
+| `/api/crucible/macro` | `crucibleTemp`, `zone`, `totalSnaccSupply`, `totalSnaccBurned`, `ruleBoundTreasury`, `epochVolume`, `history`, `contractId`, `blockHeight` | live, from the view `get_macro_state` |
+| `/api/strains` (alias `/api/crucible/strains`) | `strains`, `starvingCount`, `liquidatedCount`, `splicedCount`, `totalMinted`, `truncated`, `source`, `contractId` (at most 200 strains) | live, from contract views |
+| `/api/strains/:id` (alias under `/api/crucible/strains/:id`) | one `StrainVesselView`. 404 if the Snacc does not exist | live |
+| `/api/strains/:id/svg` | the Snacc's on-chain SVG as `image/svg+xml`, decoded from `nft_token`, with a locked-down content security policy | live |
+| `/api/colony/:owner` | `owner_id`, `strains`, `colonyAtp`. 400 for an invalid account id | live |
+| `/api/dividends` | `industrial_dividend_pool`, `epoch_dividend_inflow`, `last_closed_epoch`, `epoch_dividend_rate` (last 24 epochs). With `?epoch=&strain_id=` also that Snacc's `contribution` and whether it was claimed | live |
+| `/api/appetite` | the appetite meter (`zone`, `crucible_temp`, `current_epoch`, `burst_bps`, `burst_until`, `burst_epochs_left`, `dormant`, `feast_volume`, `feast_target`, `risk_heat`) plus `top_feeders` | live |
+| `/api/zones` | `current` zone, plus a `history` of `zone_changed` events | partial: the history comes from the in-memory cache and is flagged `history_complete: false`, because the contract has no zone history view |
+| `/api/events` | decoded `NEP-297` events, `indexer_incomplete`, `contractId` | partial: see below |
+| `/api/tee/attestation-report` | a proxy of NEAR AI Cloud's attestation report (60 second cache): `model`, `signingAddress`, `gatewayAttestation`, `modelAttestations` | live |
+| `POST /api/tee/evaluate-genome` | the genome evaluation of [TEE verification](/docs/tee) | gated: `503 tee_not_configured` without a key, which is the case on the public backend |
+
+Only `/api/crucible/macro` and the strain list have the `/api/crucible/` prefix in their canonical form. The other routes live directly under `/api/`.
+
+### What the API never does
+
+- **It never invents data.** An unimplemented route answers `501 {"error":"not_implemented"}`. An undeployed contract answers `503 {"error":"contract_not_deployed"}`. A failed RPC answers `503 {"error":"rpc_unavailable"}`. An unknown path answers `404 {"error":"not_found"}`.
+- **It tells you when data is stale or incomplete.** When every RPC endpoint fails, a cached view up to 120 seconds old is served with an `x-data-stale-seconds` header. The events response has an `indexer_incomplete` flag, and a lag header `x-indexer-lag-blocks` (the distance from the chain head to the newest contract transaction it has absorbed, which grows when the contract is quiet).
+- **It is not a signer.** Writes stay in the player's wallet.
+
+### The event poller
+
+`GET /api/events` is served by a poller. RPC chunks do not carry execution logs, and scanning every block exhausts the public RPC quota within a minute, so the poller discovers transactions through the NearBlocks v3 account feed (one call per tick, no key) and reads the `EVENT_JSON` logs from the `tx` RPC, at most 5 new transactions per tick. The events live in an in-memory cache, so they are lost on a restart until the poller catches up again. Long-lived history is the job of the Supabase function `chain-index` (below).
+
+### The RPC pool
+
+Public testnet RPCs rate-limit by IP, so the API treats RPC as an ordered pool (by default dRPC, FastNEAR, Intear, then `rpc.testnet.near.org`). On a 429, a 5xx or a timeout it moves to the next endpoint with backoff, and it caches a view for 10 seconds. Environment variables set the contract (`CONTRACT_ID`, `snacc-v001.testnet` by default), the pool (`RPC_URLS`) and the cache. The NEAR AI key is read only from the server environment and is never logged or returned.
+
+### Run it yourself
+
+```bash
+git clone https://github.com/Snacc-near/backend.git && cd backend
+npm ci && npm test                         # unit tests, RPC stubbed, no network
+CONTRACT_ID=snacc-v001.testnet npm start   # http://localhost:8787
+curl -s localhost:8787/api/crucible/macro
+```
+
+## The Supabase Edge Functions
+
+Eight Edge Functions serve the off-chain player features. They are **deployed**: on 2026-11-14 a read-only CORS preflight to each function URL was answered with a non-404 status. Errors have the form `{ "error": "<code>", "message": "<plain English>" }`.
+
+| Function | Called by | Auth | What it does |
+| --- | --- | --- | --- |
+| `near-auth` | the app (`POST /challenge`, `POST /verify`) | none (it is the sign-in) | A NEP-413 sign-in: it checks that the signing key is a full-access key of the account, then creates the session |
+| `record-tx` | the app, with the session token | Supabase JWT | Reads a transaction from RPC and records one activity row if the signer, the receiver and the status are right |
+| `notify-scan` | scheduled, every 10 minutes | a cron secret header | Scans owned Snaccs and writes "starving", "distressed" and "lost" notifications |
+| `chain-index` | scheduled, every 10 minutes | a cron secret header | Indexes the Snacc contract's and the market's `EVENT_JSON` logs into `chain_events_snacc`. It feeds the lineage, history and graveyard views |
+| `starter-pack` | the app, with the session token | Supabase JWT | A testnet faucet claim of 0.3 NEAR, once per account, with daily caps. **Deployed, not enabled**: it answers `503 not_configured` until a faucet secret is set |
+| `track` | the app | allowed origins only | First-party usage and error telemetry. It respects opt-out and Do Not Track and stores no account id and no raw IP |
+| `push` | the app, with the session token | Supabase JWT | Web Push subscription: the key, subscribe and unsubscribe routes |
+| `push-dispatch` | scheduled, every minute | a cron secret header | Sends the Web Push messages for new notifications |
+
+Account deletion is **not live**: its database migration is not applied. Real push delivery to a device is **not verified**. The tables, the row-level security rules and the exact request and response shapes are written out in `supabase/README.md` of the repo.
+
+The indexer API and the Edge Functions are separate. Nothing in the Supabase part changes what the contract proves, and the API of the first part never reads Supabase.
