@@ -756,9 +756,14 @@ figure.shiki,
   .sn-hero__dots i:nth-child(3n) { animation-duration: 15s; animation-delay: -6s; }
 }
 
+.sn-home {
+  overflow-x: clip;
+}
+
 .sn-hero__inner {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 40px;
   align-items: center;
   max-width: 1200px;
